@@ -567,12 +567,13 @@ const st={
   screen:'welcome',navDirection:'forward',history:['welcome'],
   name:'',email:'',postcode:'',consentData:false,consentMarketing:false,
   skinType:null,skinAnalysis:null,capturedPhoto:null,
-  cameraStream:null,cameraAnimFrame:null,
+  cameraAnimFrame:null,
   answers:{},currentQuestion:0,abcdeAnswers:{},
   consentLocation:false,consentTravel:false,lat:null,lon:null,city:'',country:'',country_code:'',
   riskScore:null,riskLevel:null,
   profile:null,weatherData:null,currentCity:'',showTravelBanner:false,profileExpanded:false,
 };
+window.activeCameraStream=null;
 // ===== NAVIGATION =====
 function navigate(screen){
   st.navDirection='forward';st.history.push(screen);st.screen=screen;
@@ -633,9 +634,31 @@ function renderHeader(showBack=true){
 // ===== CAMERA / AI ANALYSIS =====
 function stopCamera(){
   if(st.cameraAnimFrame){cancelAnimationFrame(st.cameraAnimFrame);st.cameraAnimFrame=null;}
-  if(st.cameraStream){st.cameraStream.getTracks().forEach(t=>t.stop());st.cameraStream=null;}
+  if(window.activeCameraStream){window.activeCameraStream.getTracks().forEach(t=>t.stop());window.activeCameraStream=null;}
 }
 function showCameraState(s){
+  if(s==='B'){
+    const b=document.getElementById('cam-state-b');
+    if(b){
+      b.innerHTML=`<h2 class="title-lg" style="margin-bottom:14px">Position your arm</h2>
+        <div class="cam-wrap">
+          <video id="cameraVideo" class="cam-video" autoplay playsinline muted></video>
+          <canvas id="overlayCanvas" class="cam-canvas"></canvas>
+          <div class="cam-guide-pill">Align your forearm within the oval</div>
+        </div>
+        <div style="text-align:center">
+          <button class="cam-shutter" onclick="capturePhoto()" title="Take photo" aria-label="Capture photo"></button>
+          <p style="font-size:12px;color:var(--tmc-gray-400);margin-top:10px">Tap when your arm is centred in the oval</p>
+        </div>
+        <div style="margin-top:10px;text-align:center">
+          <button class="btn-ghost" onclick="stopCamera();showCameraState('A')">&#8592; Back to setup</button>
+        </div>`;
+      b.style.display='';
+    }
+    const a=document.getElementById('cam-state-a');if(a)a.style.display='none';
+    const c=document.getElementById('cam-state-c');if(c)c.style.display='none';
+    return;
+  }
   ['A','B','C'].forEach(id=>{
     const el=document.getElementById('cam-state-'+id);
     if(el)el.style.display=(id===s)?'':'none';
@@ -643,24 +666,28 @@ function showCameraState(s){
 }
 async function startCamera(){
   showCameraState('B');
-  const video=document.getElementById('camVideo');
-  const canvas=document.getElementById('camCanvas');
-  if(!video||!canvas){showCameraState('A');return;}
+  const videoEl=document.getElementById('cameraVideo');
+  if(!videoEl){showCameraState('A');return;}
   try{
-    let stream;
-    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920,min:640},height:{ideal:1080,min:480},aspectRatio:{ideal:16/9}},audio:false});
-    st.cameraStream=stream;
-    video.srcObject=stream;
-    await new Promise(res=>{video.onloadedmetadata=res;});
-    await video.play();
-    startOverlay(video,canvas);
+    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920,min:640},height:{ideal:1080,min:480},aspectRatio:{ideal:16/9}},audio:false});
+    window.activeCameraStream=stream;
+    videoEl.srcObject=stream;
+    videoEl.setAttribute('playsinline','');
+    videoEl.muted=true;
+    await videoEl.play();
+    renderArmOverlay();
   }catch(e){
     showToast('Camera access denied — please allow camera permission.');
     showCameraState('A');
   }
 }
-function startOverlay(video,canvas){
+function renderArmOverlay(){
+  const canvas=document.getElementById('overlayCanvas');
+  const video=document.getElementById('cameraVideo');
+  if(!canvas||!video)return;
+  if(canvas.offsetWidth===0){requestAnimationFrame(renderArmOverlay);return;}
   function draw(){
+    if(!window.activeCameraStream)return;
     const vw=video.videoWidth||video.clientWidth||320;
     const vh=video.videoHeight||video.clientHeight||240;
     canvas.width=vw;canvas.height=vh;
@@ -691,7 +718,7 @@ function startOverlay(video,canvas){
   draw();
 }
 function capturePhoto(){
-  const video=document.getElementById('camVideo');
+  const video=document.getElementById('cameraVideo');
   if(!video||!video.videoWidth)return;
   const c=document.createElement('canvas');
   c.width=video.videoWidth;c.height=video.videoHeight;
@@ -875,25 +902,11 @@ function renderArmCamera(){
         <div class="photo-tip-row"><div class="photo-tip-emoji">&#128247;</div><div class="photo-tip-body"><strong>30–40 cm from camera</strong>Fill the frame with your forearm from wrist to elbow.</div></div>
       </div>
       <div style="margin-top:20px;display:flex;flex-direction:column;gap:12px">
-        <button class="btn-primary" id="camStartBtn">Start Camera &#8594;</button>
+        <button class="btn-primary" id="camStartBtn" onclick="startCamera()">Start Camera &#8594;</button>
         <button class="btn-ghost" onclick="proceedWithoutAnalysis()">Skip — I'll enter details manually</button>
       </div>
     </div>
-    <div id="cam-state-b" style="display:none" class="content-tight">
-      <h2 class="title-lg" style="margin-bottom:14px">Position your arm</h2>
-      <div class="cam-wrap">
-        <video id="camVideo" class="cam-video" autoplay playsinline muted></video>
-        <canvas id="camCanvas" class="cam-canvas"></canvas>
-        <div class="cam-guide-pill">Align your forearm within the oval</div>
-      </div>
-      <div style="text-align:center">
-        <button class="cam-shutter" id="camCaptureBtn" title="Take photo" aria-label="Capture photo"></button>
-        <p style="font-size:12px;color:var(--tmc-gray-400);margin-top:10px">Tap when your arm is centred in the oval</p>
-      </div>
-      <div style="margin-top:10px;text-align:center">
-        <button class="btn-ghost" onclick="stopCamera();showCameraState('A')">&#8592; Back to setup</button>
-      </div>
-    </div>
+    <div id="cam-state-b" style="display:none" class="content-tight"></div>
     <div id="cam-state-c" style="display:none">
       <div class="content animate-in"><h2 class="title-lg">Analysing…</h2></div>
     </div>
@@ -1292,7 +1305,7 @@ async function retryPostcodeUV(){
   if(coords){try{const wd=await fetchWeatherAndUV(coords.lat,coords.lon);if(wd){updateWeatherUI(wd,{city:`Based on your postcode (${p.postcode.toUpperCase()})`});return;}}catch(e){}}
   showPostcodeUVError(p);
 }
-function resetProfile(){if(confirm('This will clear your profile and restart the questionnaire. Are you sure?')){clearProfile();stopCamera();Object.assign(st,{profile:null,screen:'welcome',history:['welcome'],weatherData:null,currentCity:'',skinAnalysis:null,capturedPhoto:null,cameraStream:null,cameraAnimFrame:null});render();}}
+function resetProfile(){if(confirm('This will clear your profile and restart the questionnaire. Are you sure?')){clearProfile();stopCamera();window.activeCameraStream=null;Object.assign(st,{profile:null,screen:'welcome',history:['welcome'],weatherData:null,currentCity:'',skinAnalysis:null,capturedPhoto:null,cameraAnimFrame:null});render();}}
 function afterLocationConsent(){if(st.consentLocation)navigate('consent_travel');else navigate('consent_notifications');}
 // ===== MAIN RENDER =====
 function render(){
@@ -1332,11 +1345,6 @@ function bindEvents(){
   if(consentDataEl)consentDataEl.addEventListener('click',()=>{st.consentData=!st.consentData;render();});
   if(consentMktEl)consentMktEl.addEventListener('click',()=>{st.consentMarketing=!st.consentMarketing;render();});
   if(consentNext)consentNext.addEventListener('click',()=>navigate('arm_camera'));
-  // Arm camera screen
-  const camStartBtn=document.getElementById('camStartBtn');
-  if(camStartBtn)camStartBtn.addEventListener('click',startCamera);
-  const camCaptureBtn=document.getElementById('camCaptureBtn');
-  if(camCaptureBtn)camCaptureBtn.addEventListener('click',capturePhoto);
   // Questionnaire screen
   document.querySelectorAll('.option-card[data-answer]').forEach(c=>c.addEventListener('click',()=>{st.answers[questions[st.currentQuestion].id]=c.dataset.answer;render();}));
   const questionNext=document.getElementById('questionNext');
