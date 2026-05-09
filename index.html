@@ -807,18 +807,12 @@ function showCameraState(s,dataURL){
   if(s==='C'&&dataURL){
     const stC=document.getElementById('cam-state-c');
     if(stC){
-      stC.innerHTML=`<div class="content animate-in">
-        <h2 class="title-lg" style="margin-bottom:14px">Photo captured</h2>
-        <img src="${dataURL}" class="cam-result-img" alt="Captured arm photo" style="width:100%;border-radius:12px;margin-bottom:16px">
-        <div id="analysisLoading" style="display:none;flex-direction:column;align-items:center;gap:10px;padding:20px 0">
-          <div class="cam-spinner"></div>
-          <div style="font-size:14px;color:var(--tmc-gray-600)">Analysing your arm with Claude AI</div>
-          <div style="font-size:12px;color:var(--tmc-gray-400)">This takes a few seconds</div>
-        </div>
-        <div style="display:flex;gap:10px;margin-top:4px">
-          <button class="btn-secondary" onclick="retakePhoto()" style="flex:1">&#8592; Retake</button>
-          <button class="btn-primary" id="analyseBtn" onclick="runAnalysis()" style="flex:1">Analyse Photo &#8594;</button>
-        </div>
+      stC.innerHTML=`<div style="padding:32px 20px;text-align:center">
+        <div style="font-size:48px;margin-bottom:16px">&#128247;</div>
+        <h3 style="font-size:20px;font-weight:700;color:#1a2e2e;margin-bottom:8px">Photo captured</h3>
+        <p style="color:#666;font-size:15px;margin-bottom:28px">Your arm photo has been saved to your profile.</p>
+        <button onclick="proceedFromAnalysis()" style="width:100%;padding:14px;background:#00A99D;color:white;border:none;border-radius:10px;font-weight:600;cursor:pointer;font-size:16px">Continue &#8594;</button>
+        <p style="margin-top:16px"><a href="#" onclick="retakePhoto();return false;" style="color:#00A99D;font-size:14px;text-decoration:none">Retake photo</a></p>
       </div>`;
       stC.style.display='';
     }
@@ -897,26 +891,13 @@ function capturePhoto(){
   window.capturedImageDataURL=dataURL;
   st.capturedPhoto=dataURL;
   showCameraState('C',dataURL);
+  analyseArmPhoto(dataURL).then(handleAnalysisResult).catch(err=>console.error(err));
 }
 function retakePhoto(){
   window.capturedImageDataURL=null;
   st.capturedPhoto=null;
   if(window.activeCameraStream){window.activeCameraStream.getTracks().forEach(t=>t.stop());window.activeCameraStream=null;}
   showCameraState('A');
-}
-async function runAnalysis(){
-  const dataURL=window.capturedImageDataURL;
-  if(!dataURL)return;
-  const btn=document.getElementById('analyseBtn');if(btn)btn.style.display='none';
-  const loadingEl=document.getElementById('analysisLoading');if(loadingEl)loadingEl.style.display='flex';
-  try{
-    const result=await analyseArmPhoto(dataURL);
-    if(loadingEl)loadingEl.style.display='none';
-    handleAnalysisResult(result);
-  }catch(err){
-    if(loadingEl)loadingEl.style.display='none';
-    handleAnalysisError(err);
-  }
 }
 /*
  * PIXEL-BASED MONK SKIN TONE CLASSIFICATION
