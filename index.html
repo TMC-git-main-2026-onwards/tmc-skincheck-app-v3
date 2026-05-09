@@ -1,0 +1,1408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1a2332">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>The Mole Clinic — Skin Safety</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --tmc-navy:#1a2332;--tmc-navy-light:#243044;--tmc-teal:#2ec4b6;--tmc-teal-dark:#20a99c;
+  --tmc-teal-light:#e8faf8;--tmc-coral:#e07a5f;--tmc-coral-light:#fdf0ec;
+  --tmc-gold:#f2cc8f;--tmc-cream:#faf8f5;--tmc-white:#ffffff;
+  --tmc-gray-100:#f5f5f5;--tmc-gray-200:#e8e8e8;--tmc-gray-300:#d1d1d1;
+  --tmc-gray-400:#9a9a9a;--tmc-gray-600:#666666;--tmc-gray-800:#333333;
+  --font-display:'Fraunces',Georgia,serif;--font-body:'DM Sans',-apple-system,sans-serif;
+  --radius-sm:8px;--radius-md:12px;--radius-lg:20px;--radius-xl:28px;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.08);--shadow-md:0 4px 16px rgba(0,0,0,.1);
+  --shadow-lg:0 8px 32px rgba(0,0,0,.12);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{font-family:var(--font-body);background:var(--tmc-cream);color:var(--tmc-gray-800);min-height:100vh;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body{padding-bottom:env(safe-area-inset-bottom)}
+#app{min-height:100vh;overflow:hidden}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(48px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideInLeft{from{opacity:0;transform:translateX(-48px)}to{opacity:1;transform:translateX(0)}}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+@keyframes pulseCTA{0%,100%{box-shadow:0 0 0 0 rgba(46,196,182,.5)}50%{box-shadow:0 0 0 10px rgba(46,196,182,0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes scanLine{0%{transform:translateY(0);opacity:1}90%{opacity:1}100%{transform:translateY(180px);opacity:0}}
+@keyframes bodyPulse{0%,100%{opacity:.6}50%{opacity:1}}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@keyframes nudgeIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+.animate-in{animation:fadeInUp .5s ease-out forwards}
+.animate-in-delay-1{animation:fadeInUp .5s ease-out .1s forwards;opacity:0}
+.animate-in-delay-2{animation:fadeInUp .5s ease-out .2s forwards;opacity:0}
+.animate-in-delay-3{animation:fadeInUp .5s ease-out .3s forwards;opacity:0}
+.animate-in-delay-4{animation:fadeInUp .5s ease-out .4s forwards;opacity:0}
+.screen-slide-right{animation:slideInRight .35s cubic-bezier(.4,0,.2,1) forwards}
+.screen-slide-left{animation:slideInLeft .35s cubic-bezier(.4,0,.2,1) forwards}
+.screen{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+.header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 8px;background:var(--tmc-white);border-bottom:1px solid var(--tmc-gray-200);position:sticky;top:0;z-index:100}
+.header-logo{font-family:var(--font-display);font-size:18px;font-weight:600;color:var(--tmc-navy);letter-spacing:-.3px}
+.header-back{width:44px;height:44px;border-radius:50%;border:none;background:var(--tmc-gray-100);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;font-size:18px;color:var(--tmc-gray-600)}
+.header-back:hover{background:var(--tmc-gray-200)}
+.progress-bar{height:3px;background:var(--tmc-gray-200)}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--tmc-teal),var(--tmc-teal-dark));transition:width .6s cubic-bezier(.4,0,.2,1);border-radius:0 2px 2px 0}
+.progress-label{font-size:12px;color:var(--tmc-gray-400);text-align:center;padding:6px 20px 0;font-weight:500;letter-spacing:.5px;text-transform:uppercase}
+.progress-microcopy{font-size:12px;color:var(--tmc-teal-dark);text-align:center;padding:3px 20px 6px;font-weight:500;font-style:italic}
+.content{flex:1;padding:24px 20px 100px;overflow-y:auto}
+.content-tight{padding:16px 20px 100px}
+.title-xl{font-family:var(--font-display);font-size:32px;font-weight:600;color:var(--tmc-navy);line-height:1.2;letter-spacing:-.5px}
+.title-lg{font-family:var(--font-display);font-size:26px;font-weight:600;color:var(--tmc-navy);line-height:1.25;letter-spacing:-.3px}
+.title-md{font-family:var(--font-display);font-size:20px;font-weight:600;color:var(--tmc-navy);line-height:1.3}
+.subtitle{font-size:16px;color:var(--tmc-gray-600);line-height:1.6;margin-top:12px}
+.subtitle-sm{font-size:14px;color:var(--tmc-gray-600);line-height:1.5;margin-top:8px}
+.label{font-size:13px;font-weight:600;color:var(--tmc-gray-400);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.btn-primary{width:100%;padding:16px 24px;background:var(--tmc-teal);color:white;font-family:var(--font-body);font-size:16px;font-weight:600;border:none;border-radius:var(--radius-md);cursor:pointer;transition:all .25s;letter-spacing:.2px}
+.btn-primary:hover{background:var(--tmc-teal-dark);transform:translateY(-1px);box-shadow:var(--shadow-md)}
+.btn-primary:active{transform:translateY(0)}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
+.btn-secondary{width:100%;padding:14px 24px;background:transparent;color:var(--tmc-teal);font-family:var(--font-body);font-size:15px;font-weight:600;border:2px solid var(--tmc-teal);border-radius:var(--radius-md);cursor:pointer;transition:all .25s}
+.btn-secondary:hover{background:var(--tmc-teal-light)}
+.btn-ghost{background:none;border:none;color:var(--tmc-teal);font-family:var(--font-body);font-size:14px;font-weight:600;cursor:pointer;padding:8px 0;transition:opacity .2s}
+.btn-ghost:hover{opacity:.7}
+.bottom-action{position:fixed;bottom:0;left:0;right:0;padding:16px 20px;padding-bottom:calc(16px + env(safe-area-inset-bottom));background:linear-gradient(0deg,var(--tmc-cream) 70%,transparent);z-index:90}
+.bottom-action .btn-primary{max-width:480px;margin:0 auto;display:block}
+.card{background:var(--tmc-white);border-radius:var(--radius-lg);padding:20px;box-shadow:var(--shadow-sm);border:1px solid var(--tmc-gray-200)}
+.card-highlight{background:var(--tmc-white);border-radius:var(--radius-lg);padding:24px;box-shadow:var(--shadow-md);border:2px solid var(--tmc-teal)}
+.option-card{background:var(--tmc-white);border:2px solid var(--tmc-gray-200);border-radius:var(--radius-md);padding:16px 20px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:14px;margin-bottom:10px}
+.option-card:hover,.option-card.selected{border-color:var(--tmc-teal);background:var(--tmc-teal-light)}
+.option-card .radio{width:22px;height:22px;border-radius:50%;border:2px solid var(--tmc-gray-300);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.option-card.selected .radio{border-color:var(--tmc-teal);background:var(--tmc-teal)}
+.option-card.selected .radio::after{content:'';width:8px;height:8px;border-radius:50%;background:white}
+.option-label{font-size:15px;font-weight:500;color:var(--tmc-navy)}
+.option-desc{font-size:13px;color:var(--tmc-gray-600);margin-top:2px}
+.risk-nudge{background:var(--tmc-coral-light);border-radius:var(--radius-sm);padding:12px 14px;display:flex;gap:10px;align-items:flex-start;margin-top:4px;margin-bottom:10px;animation:nudgeIn .3s ease-out}
+.risk-nudge-icon{font-size:16px;flex-shrink:0;line-height:1.4}
+.risk-nudge-text{font-size:13px;color:#8b3a2a;line-height:1.5}
+.photo-tip-row{display:flex;align-items:flex-start;gap:14px;background:var(--tmc-white);border:1px solid var(--tmc-gray-200);border-radius:var(--radius-md);padding:14px}
+.photo-tip-emoji{font-size:22px;flex-shrink:0}
+.photo-tip-body{font-size:13px;color:var(--tmc-gray-600);line-height:1.45}
+.photo-tip-body strong{color:var(--tmc-navy);display:block;margin-bottom:2px;font-size:14px}
+.abcde-cards{display:flex;flex-direction:column;gap:10px;margin-top:16px}
+.abcde-card{display:flex;align-items:flex-start;gap:14px;background:var(--tmc-white);border-radius:var(--radius-md);padding:16px;border:1px solid var(--tmc-gray-200);transition:border-color .2s;cursor:pointer}
+.abcde-card.checked{border-color:var(--tmc-coral);background:#fff8f6}
+.abcde-letter{width:40px;height:40px;border-radius:50%;background:var(--tmc-navy);color:white;font-family:var(--font-display);font-size:20px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .2s}
+.abcde-card.checked .abcde-letter{background:var(--tmc-coral)}
+.abcde-title{font-size:14px;font-weight:600;color:var(--tmc-navy)}
+.abcde-desc{font-size:13px;color:var(--tmc-gray-600);margin-top:2px;line-height:1.4}
+.consent-row{display:flex;align-items:flex-start;gap:12px;margin-top:16px}
+.consent-checkbox{width:22px;height:22px;border:2px solid var(--tmc-gray-300);border-radius:4px;flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;margin-top:2px}
+.consent-checkbox.checked{background:var(--tmc-teal);border-color:var(--tmc-teal)}
+.consent-checkbox.checked::after{content:'✓';color:white;font-size:14px;font-weight:700}
+.consent-text{font-size:13px;color:var(--tmc-gray-600);line-height:1.5}
+.consent-text a{color:var(--tmc-teal);text-decoration:underline}
+.input-group{margin-bottom:16px}
+.input-label{font-size:14px;font-weight:600;color:var(--tmc-navy);margin-bottom:6px;display:block}
+.input-field{width:100%;padding:14px 16px;border:2px solid var(--tmc-gray-200);border-radius:var(--radius-sm);font-family:var(--font-body);font-size:15px;color:var(--tmc-navy);transition:border-color .2s;background:var(--tmc-white)}
+.input-field:focus{outline:none;border-color:var(--tmc-teal)}
+.input-field::placeholder{color:var(--tmc-gray-400)}
+.clinic-card{background:var(--tmc-white);border-radius:var(--radius-md);padding:16px;border:1px solid var(--tmc-gray-200);display:flex;gap:14px;align-items:center;margin-bottom:10px;transition:all .2s}
+.clinic-card:hover{border-color:var(--tmc-teal);box-shadow:var(--shadow-sm)}
+.clinic-card.recommended{border:2px solid var(--tmc-teal)}
+.clinic-icon{width:44px;height:44px;background:var(--tmc-teal-light);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.clinic-name{font-size:15px;font-weight:600;color:var(--tmc-navy)}
+.clinic-distance{font-size:13px;color:var(--tmc-gray-600)}
+.clinic-book-btn{background:var(--tmc-teal);color:white;border:none;border-radius:var(--radius-sm);padding:8px 14px;font-family:var(--font-body);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;transition:background .2s;margin-left:auto;flex-shrink:0}
+.clinic-book-btn:hover{background:var(--tmc-teal-dark)}
+.service-card{background:linear-gradient(135deg,var(--tmc-navy),var(--tmc-navy-light));border-radius:var(--radius-lg);padding:24px;color:white;margin-bottom:16px;position:relative;overflow:hidden}
+.service-card::before{content:'';position:absolute;top:-40px;right:-40px;width:160px;height:160px;border-radius:50%;background:radial-gradient(circle,rgba(46,196,182,.12) 0%,transparent 70%)}
+.service-badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px}
+.service-badge-rec{background:var(--tmc-teal);color:white}
+.service-name{font-family:var(--font-display);font-size:22px;font-weight:600;margin-bottom:8px}
+.service-desc{font-size:14px;opacity:.82;line-height:1.55}
+.service-price{font-family:var(--font-display);font-size:26px;font-weight:700;color:var(--tmc-gold);margin-top:14px}
+.risk-factor-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--tmc-gray-100);font-size:14px;color:var(--tmc-navy)}
+.risk-factor-item:last-child{border-bottom:none}
+.risk-factor-dot{width:8px;height:8px;border-radius:50%;background:var(--tmc-coral);flex-shrink:0;margin-top:5px}
+.tag{display:inline-block;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600}
+.tag-low{background:#e8f5e9;color:#2e7d32}
+.tag-moderate{background:#fff3e0;color:#e65100}
+.tag-high{background:#fce4ec;color:#c62828}
+.tag-veryhigh{background:#f3e5f5;color:#6a1b9a}
+.welcome-hero{background:linear-gradient(160deg,var(--tmc-navy) 0%,#2a3f5a 50%,var(--tmc-navy-light) 100%);border-radius:0 0 var(--radius-xl) var(--radius-xl);padding:48px 24px 40px;text-align:center;color:white;position:relative;overflow:hidden}
+.welcome-hero::before{content:'';position:absolute;top:-50%;right:-20%;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(46,196,182,.15) 0%,transparent 70%)}
+.welcome-hero-logo{position:relative;z-index:1;margin:0 auto 32px auto}
+.welcome-hero .title-xl{color:white;position:relative;z-index:1}
+.welcome-hero .subtitle{color:rgba(255,255,255,.78);position:relative;z-index:1}
+.welcome-stat{display:inline-block;background:rgba(255,255,255,.12);border-radius:var(--radius-sm);padding:8px 14px;font-size:13px;color:rgba(255,255,255,.9);margin-top:16px;position:relative;z-index:1;backdrop-filter:blur(4px)}
+.welcome-social-proof{font-size:13px;color:rgba(255,255,255,.7);margin-top:10px;position:relative;z-index:1}
+.feature-list{margin-top:24px}
+.feature-item{display:flex;align-items:flex-start;gap:14px;padding:14px 0}
+.feature-icon{width:40px;height:40px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.feature-icon-teal{background:var(--tmc-teal-light)}
+.feature-icon-coral{background:var(--tmc-coral-light)}
+.feature-icon-gold{background:#fdf5e6}
+.feature-title{font-size:15px;font-weight:600;color:var(--tmc-navy)}
+.feature-desc{font-size:13px;color:var(--tmc-gray-600);margin-top:2px;line-height:1.4}
+.disclaimer{background:var(--tmc-gray-100);border-radius:var(--radius-sm);padding:14px 16px;font-size:12px;color:var(--tmc-gray-600);line-height:1.5;margin-top:20px}
+.disclaimer strong{color:var(--tmc-gray-800)}
+.loading-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:70vh;text-align:center;padding:40px 24px}
+.loading-body-wrap{position:relative;width:100px;height:200px;margin-bottom:28px}
+.loading-scan-line{position:absolute;left:0;top:0;width:100%;height:3px;background:linear-gradient(90deg,transparent,var(--tmc-teal),transparent);border-radius:2px;animation:scanLine 1.8s ease-in-out infinite;box-shadow:0 0 8px var(--tmc-teal)}
+.loading-body-svg{animation:bodyPulse 1.8s ease-in-out infinite}
+.loading-msg{font-size:15px;color:var(--tmc-gray-600);animation:fadeIn .4s ease-out;min-height:22px}
+.divider{height:1px;background:var(--tmc-gray-200);margin:20px 0}
+.trust-badge{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--tmc-gray-600);margin-top:16px;justify-content:center}
+.screen-footer{text-align:center;padding:12px 20px 8px;font-size:11px;color:var(--tmc-gray-400);border-top:1px solid var(--tmc-gray-200);margin-top:auto}
+.screen-footer a{color:var(--tmc-gray-400);text-decoration:none}
+.screen-footer a:hover{color:var(--tmc-teal)}
+.toggle-wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 0}
+.toggle-switch{position:relative;display:inline-block;width:52px;height:28px;flex-shrink:0}
+.toggle-switch input{opacity:0;width:0;height:0;position:absolute}
+.toggle-slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#ccc;border-radius:28px;transition:.3s}
+.toggle-slider:before{position:absolute;content:"";height:22px;width:22px;left:3px;bottom:3px;background:white;border-radius:50%;transition:.3s;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+input:checked+.toggle-slider{background:var(--tmc-teal)}
+input:checked+.toggle-slider:before{transform:translateX(24px)}
+.toggle-label-text{font-size:15px;font-weight:600;color:var(--tmc-navy)}
+.toggle-label-sub{font-size:12px;color:var(--tmc-gray-600);margin-top:2px}
+.hp-screen{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;background:var(--tmc-cream)}
+.hp-header{background:linear-gradient(160deg,var(--tmc-navy) 0%,#1e3250 100%);padding:48px 20px 28px;position:relative;overflow:hidden}
+.hp-header::before{content:'';position:absolute;top:-30%;right:-15%;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(46,196,182,.12) 0%,transparent 70%)}
+.hp-logo{margin-bottom:14px;position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between}
+.hp-logo img{height:60px;width:auto;display:block}
+.hp-reset-link{font-size:11px;color:rgba(255,255,255,.4);cursor:pointer;background:none;border:none;font-family:var(--font-body);text-decoration:underline;padding:0}
+.hp-reset-link:hover{color:rgba(255,255,255,.7)}
+.hp-greeting{font-family:var(--font-display);font-size:28px;font-weight:600;color:white;line-height:1.2;position:relative;z-index:1}
+.hp-meta{display:flex;align-items:center;gap:8px;margin-top:8px;position:relative;z-index:1;flex-wrap:wrap}
+.hp-date{font-size:13px;color:rgba(255,255,255,.65)}
+.hp-location{font-size:13px;color:rgba(255,255,255,.75);display:flex;align-items:center;gap:4px}
+.hp-content{flex:1;padding:20px 16px 100px;overflow-y:auto}
+.hp-section-label{font-size:11px;font-weight:700;color:var(--tmc-gray-400);text-transform:uppercase;letter-spacing:1.2px;margin:20px 0 10px}
+.hp-section-label:first-child{margin-top:0}
+.uv-card{background:var(--tmc-white);border-radius:var(--radius-lg);padding:20px;box-shadow:var(--shadow-md);border:1px solid var(--tmc-gray-200);margin-bottom:4px;overflow:visible}
+.uv-gauge-wrap{display:flex;justify-content:center;margin-bottom:8px}
+.uv-value-row{display:flex;align-items:baseline;justify-content:center;gap:8px;margin-bottom:6px}
+.uv-value{font-family:var(--font-display);font-size:40px;font-weight:700;color:var(--tmc-navy);line-height:1}
+.uv-value-label{font-size:12px;color:var(--tmc-gray-400);align-self:flex-end;padding-bottom:4px}
+.uv-level-badge{display:inline-block;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:700;letter-spacing:.5px;text-align:center;margin:0 auto 12px;display:block;width:fit-content;margin-left:auto;margin-right:auto}
+.uv-spf-rec{background:var(--tmc-teal-light);border-radius:var(--radius-sm);padding:12px 14px;font-size:13px;color:var(--tmc-navy);line-height:1.5;margin-bottom:10px}
+.uv-spf-rec strong{color:var(--tmc-teal-dark)}
+.uv-spf-note{font-size:11px;color:var(--tmc-gray-600);font-style:italic;margin-top:4px}
+.uv-peak-alert{background:#fff8e1;border:1px solid #ffe082;border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;color:#f57f17;font-weight:500;margin-bottom:10px;display:none}
+.uv-weather-row{display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;color:var(--tmc-gray-600);padding-top:8px;border-top:1px solid var(--tmc-gray-100)}
+.uv-loading-state{text-align:center;padding:24px 0}
+.uv-loading-spinner{width:28px;height:28px;border:3px solid var(--tmc-gray-200);border-top-color:var(--tmc-teal);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 10px}
+.uv-unavailable{text-align:center;padding:20px 0;color:var(--tmc-gray-400);font-size:13px}
+.uv-unavailable-icon{font-size:28px;margin-bottom:8px}
+.travel-banner{background:linear-gradient(135deg,#1a3a2a,#1e4d35);border-radius:var(--radius-lg);padding:16px;margin-bottom:16px;color:white;position:relative}
+.travel-banner-title{font-size:15px;font-weight:700;margin-bottom:4px}
+.travel-banner-body{font-size:13px;opacity:.85;line-height:1.5;margin-bottom:12px}
+.travel-banner-actions{display:flex;gap:8px}
+.travel-banner-book{flex:1;padding:10px;background:var(--tmc-teal);color:white;border:none;border-radius:var(--radius-sm);font-family:var(--font-body);font-size:13px;font-weight:600;cursor:pointer}
+.travel-banner-dismiss{padding:10px 14px;background:rgba(255,255,255,.12);color:white;border:none;border-radius:var(--radius-sm);font-family:var(--font-body);font-size:13px;cursor:pointer}
+.collapsible-header{display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:14px 16px;background:var(--tmc-white);border-radius:var(--radius-md);border:1px solid var(--tmc-gray-200);margin-bottom:2px;transition:background .2s}
+.collapsible-header:hover{background:var(--tmc-gray-100)}
+.collapsible-title{font-size:14px;font-weight:600;color:var(--tmc-navy)}
+.collapsible-chevron{font-size:12px;color:var(--tmc-gray-400);transition:transform .3s}
+.collapsible-chevron.open{transform:rotate(180deg)}
+.collapsible-body{overflow:hidden;max-height:0;transition:max-height .4s ease-out,opacity .3s;opacity:0}
+.collapsible-body.open{max-height:2000px;opacity:1;transition:max-height .5s ease-in,opacity .3s}
+.collapsible-inner{padding:14px 0 4px}
+.hp-gauge-wrap{text-align:center;margin:8px 0 4px}
+.rec-card{background:var(--tmc-white);border-radius:var(--radius-lg);padding:16px 18px;box-shadow:var(--shadow-sm);border:1px solid var(--tmc-gray-200)}
+.rec-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--tmc-gray-100);font-size:13px;color:var(--tmc-navy);line-height:1.55}
+.rec-item:last-child{border-bottom:none;padding-bottom:0}
+.rec-dot{width:8px;height:8px;border-radius:50%;background:var(--tmc-teal);flex-shrink:0;margin-top:5px}
+.book-card{background:linear-gradient(135deg,var(--tmc-navy),var(--tmc-navy-light));border-radius:var(--radius-lg);padding:20px;color:white;margin-bottom:4px}
+.book-card-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.1);font-size:13px}
+.book-card-row:last-of-type{border-bottom:none;margin-bottom:14px}
+.book-card-label{color:rgba(255,255,255,.65)}
+.book-card-value{color:white;font-weight:600}
+.freq-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
+.freq-low{background:rgba(76,175,80,.25);color:#a5d6a7}
+.freq-mod{background:rgba(255,179,0,.2);color:#ffe082}
+.freq-high{background:rgba(255,112,67,.25);color:#ffab91}
+.freq-veryhigh{background:rgba(229,57,53,.25);color:#ef9a9a}
+.book-btn-hp{width:100%;padding:16px;background:var(--tmc-teal);color:white;font-family:var(--font-display);font-size:17px;font-weight:600;border:none;border-radius:var(--radius-md);cursor:pointer;animation:pulseCTA 2.5s ease-in-out infinite;transition:background .2s;letter-spacing:.2px}
+.book-btn-hp:hover{background:var(--tmc-teal-dark);animation:none}
+.hp-profile-row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--tmc-gray-100);font-size:14px}
+.hp-profile-label{color:var(--tmc-gray-600)}
+.hp-profile-value{font-weight:600;color:var(--tmc-navy);display:flex;align-items:center;gap:6px}
+.methodology-section{background:var(--tmc-white);border-radius:var(--radius-lg);padding:16px;margin-bottom:16px;border:1px solid var(--tmc-gray-200)}
+.methodology-inner{margin-top:12px}
+.ref-item{padding:10px 0;border-bottom:1px solid var(--tmc-gray-100);font-size:12px;color:var(--tmc-gray-600);line-height:1.5}
+.ref-item:last-child{border-bottom:none}
+.ref-item strong{color:var(--tmc-navy);display:block;font-size:13px;margin-bottom:2px}
+.hp-footer{text-align:center;padding:16px 0 8px;font-size:11px;color:var(--tmc-gray-400)}
+.hp-footer a{color:var(--tmc-gray-400);text-decoration:none}
+.dev-toolbar{position:fixed;bottom:20px;left:20px;z-index:9999;background:rgba(0,0,0,.72);border-radius:20px;padding:5px 10px;display:flex;gap:6px;backdrop-filter:blur(4px)}
+.dev-toolbar button{background:none;border:none;color:rgba(255,255,255,.9);font-size:11px;font-family:var(--font-body);cursor:pointer;padding:4px 8px;border-radius:10px;transition:background .2s;white-space:nowrap}
+.dev-toolbar button:hover{background:rgba(255,255,255,.15)}
+.consent-icon{font-size:44px;text-align:center;margin-bottom:16px}
+.consent-info-box{background:var(--tmc-gray-100);border-radius:var(--radius-sm);padding:12px 14px;font-size:12px;color:var(--tmc-gray-600);line-height:1.5;margin-top:12px}
+.consent-success-box{background:var(--tmc-teal-light);border:1px solid rgba(46,196,182,.3);border-radius:var(--radius-sm);padding:12px 14px;font-size:13px;color:var(--tmc-teal-dark);margin-top:12px;display:flex;gap:8px;align-items:flex-start}
+/* ===== ARM CAMERA SCREEN ===== */
+.cam-wrap{position:relative;width:100%;background:#000;overflow:hidden;border-radius:var(--radius-lg)}
+.cam-video{width:100%;display:block;max-height:58vh;object-fit:cover}
+.cam-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+.cam-guide-pill{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);font-size:11px;color:rgba(255,255,255,.92);background:rgba(0,0,0,.48);padding:4px 12px;border-radius:20px;white-space:nowrap;backdrop-filter:blur(2px)}
+.cam-shutter{display:block;width:68px;height:68px;border-radius:50%;background:white;border:4px solid var(--tmc-teal);margin:18px auto 0;cursor:pointer;box-shadow:var(--shadow-md);transition:transform .15s}
+.cam-shutter:hover{transform:scale(1.06)}
+.cam-shutter:active{transform:scale(0.94)}
+.cam-result-img{width:100%;max-height:200px;object-fit:cover;border-radius:var(--radius-md)}
+.cam-result-card{background:var(--tmc-teal-light);border:1px solid rgba(46,196,182,.35);border-radius:var(--radius-md);padding:16px;margin-top:14px}
+.cam-result-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(46,196,182,.18);font-size:14px}
+.cam-result-row:last-child{border-bottom:none}
+.cam-result-label{color:var(--tmc-gray-600)}
+.cam-result-value{font-weight:600;color:var(--tmc-navy)}
+.cam-spinner-wrap{text-align:center;padding:36px 0}
+.cam-spinner{width:42px;height:42px;border:3px solid var(--tmc-gray-200);border-top-color:var(--tmc-teal);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 14px}
+.cam-api-note{font-size:12px;color:var(--tmc-gray-400);margin-top:6px;line-height:1.45}
+.cam-error-box{background:var(--tmc-coral-light);border-radius:var(--radius-md);padding:16px;margin-top:14px}
+.photo-tips-list{display:flex;flex-direction:column;gap:12px;margin-top:16px}
+@media(max-width:380px){.title-xl{font-size:26px}.title-lg{font-size:22px}.hp-greeting{font-size:24px}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// ===== DATA =====
+// Monk Skin Tone Scale (Ellis et al., Google / Harvard 2019) — 10 official tones
+// fitzpatrickId maps each MST tone to nearest Fitzpatrick type for internal scoring only
+const skinTypes=[
+  {id:1,color:'#f6ede4',fitzpatrickId:1,score:6},{id:2,color:'#f3e7db',fitzpatrickId:1,score:6},
+  {id:3,color:'#f7ead0',fitzpatrickId:2,score:5},{id:4,color:'#eadaba',fitzpatrickId:3,score:3},
+  {id:5,color:'#d7bd96',fitzpatrickId:3,score:3},{id:6,color:'#a07e56',fitzpatrickId:4,score:2},
+  {id:7,color:'#825c43',fitzpatrickId:5,score:1},{id:8,color:'#604134',fitzpatrickId:5,score:1},
+  {id:9,color:'#3a312a',fitzpatrickId:6,score:0},{id:10,color:'#15120e',fitzpatrickId:6,score:0},
+];
+// Questionnaire — 11 questions, weighted scoring
+// Scoring sourced from NHS skin cancer risk factor literature and EADO guidelines
+const questions=[
+  {id:'age',question:'What is your age range?',options:[
+    {value:'under25',label:'Under 25',score:1},{value:'25-34',label:'25–34',score:2},
+    {value:'35-44',label:'35–44',score:3},{value:'45-54',label:'45–54',score:4},
+    {value:'55-64',label:'55–64',score:5},{value:'65plus',label:'65+',score:6}]},
+  {id:'family_history',question:'Has anyone in your family been diagnosed with skin cancer?',subtitle:'Including melanoma or non-melanoma skin cancers',options:[
+    {value:'yes_immediate',label:'Yes — immediate family',desc:'Parent, sibling, or child',score:8},
+    {value:'yes_extended',label:'Yes — extended family',desc:'Grandparent, aunt, uncle, cousin',score:5},
+    {value:'no',label:'No',score:0},{value:'unsure',label:"I'm not sure",score:3}]},
+  {id:'personal_history',question:'Have you ever been diagnosed with skin cancer or had a suspicious mole removed?',options:[
+    {value:'yes_cancer',label:'Yes — skin cancer diagnosis',score:10},
+    {value:'yes_mole',label:'Yes — suspicious mole removed',score:7},
+    {value:'no',label:'No',score:0}]},
+  {id:'sunburn_history',question:'How often have you experienced sunburn in your life?',subtitle:'Including childhood sunburns',options:[
+    {value:'frequently',label:'Frequently',desc:'Many times, including blistering burns',score:7},
+    {value:'occasionally',label:'Occasionally',desc:'A fair number of times over the years',score:4},
+    {value:'rarely',label:'Rarely',desc:'Once or twice',score:2},
+    {value:'never',label:'Never or almost never',score:0}]},
+  {id:'outdoor_work',question:'Does your job or lifestyle involve significant time outdoors?',options:[
+    {value:'work_outdoor',label:'Yes — I work outdoors',desc:'Construction, farming, gardening, sports coaching, etc.',score:6},
+    {value:'leisure_outdoor',label:'Yes — mostly leisure',desc:'Running, cycling, golf, hiking, sailing, etc.',score:4},
+    {value:'both',label:'Both work and leisure',score:7},
+    {value:'mostly_indoor',label:'Mostly indoors',score:1}]},
+  {id:'sun_holidays',question:'How often do you take holidays in sunny climates?',subtitle:'Mediterranean, Caribbean, Australia, etc.',options:[
+    {value:'3plus',label:'3 or more times a year',score:5},{value:'1-2',label:'1–2 times a year',score:3},
+    {value:'occasionally',label:'Every couple of years',score:2},{value:'rarely',label:'Rarely or never',score:0}]},
+  {id:'sunbed_use',question:'Have you ever used sunbeds?',options:[
+    {value:'regularly',label:'Yes — regularly',desc:'Weekly or monthly use',score:8},
+    {value:'occasionally',label:'Yes — occasionally',desc:'A few times',score:4},
+    {value:'past',label:'Yes — but not anymore',desc:'Used to but stopped',score:3},
+    {value:'never',label:'Never',score:0}]},
+  {id:'mole_count',question:'Approximately how many moles do you have on your body?',options:[
+    {value:'50plus',label:'50 or more',score:7},{value:'20-50',label:'20–50',score:5},
+    {value:'10-20',label:'10–20',score:3},{value:'under10',label:'Fewer than 10',score:1}]},
+  {id:'changing_moles',question:'Have you noticed any moles that have changed recently?',subtitle:'Changes in size, shape, colour, or feel',options:[
+    {value:'yes_multiple',label:'Yes — more than one',score:9},
+    {value:'yes_one',label:'Yes — one mole',score:7},
+    {value:'unsure',label:"I'm not sure",score:4},{value:'no',label:'No',score:0}]},
+  {id:'sunscreen_use',question:'How often do you use SPF sun protection?',options:[
+    {value:'always',label:'Daily — year round',score:0},
+    {value:'summer',label:'In summer or on sunny days',score:2},
+    {value:'holiday',label:'Only on holiday',score:4},
+    {value:'rarely',label:'Rarely or never',score:6}]},
+  {id:'immune',question:'Do you take any medication that suppresses your immune system?',subtitle:'For example after organ transplant, or for autoimmune conditions',options:[
+    {value:'yes',label:'Yes',score:6},{value:'no',label:'No',score:0},{value:'unsure',label:"I'm not sure",score:2}]},
+];
+const riskNudges={
+  family_history:{yes_immediate:'Family history is one of the strongest risk indicators. Regular professional checks are especially important.'},
+  changing_moles:{yes_multiple:'Changes in multiple moles should always be assessed by a specialist.'},
+  sunbed_use:{regularly:'Regular sunbed use significantly increases skin cancer risk. A professional baseline check is recommended.'},
+  sunburn_history:{frequently:'Frequent severe sunburn is a significant risk factor for melanoma.'}
+};
+const clinics=[
+  {name:'London Marylebone',postcodes:['W1','NW','WC'],bookUrl:'https://www.themoleclinic.co.uk/book'},
+  {name:'London City',postcodes:['EC','E1','E2'],bookUrl:'https://www.themoleclinic.co.uk/book'},
+  {name:'London Chelsea',postcodes:['SW','KT','TW'],bookUrl:'https://www.themoleclinic.co.uk/book'},
+  {name:'London Canary Wharf',postcodes:['E14','E'],bookUrl:'https://www.themoleclinic.co.uk/book'},
+  {name:'Manchester',postcodes:['M','WA','SK','OL','BL','WN'],bookUrl:'https://www.themoleclinic.co.uk/book'},
+  {name:'Leeds',postcodes:['LS','BD','HG','WF','HX','HD'],bookUrl:'https://www.themoleclinic.co.uk/book'},
+  {name:'Bristol',postcodes:['BS','BA','GL','SN'],bookUrl:'https://www.themoleclinic.co.uk/book'},
+  {name:'Birmingham',postcodes:['B','WS','DY','WV','CV'],bookUrl:'https://www.themoleclinic.co.uk/book'},
+];
+const abcdeItems=[
+  {letter:'A',title:'Asymmetry',desc:"One half of the mole doesn't match the other half."},
+  {letter:'B',title:'Border',desc:'The edges are irregular, ragged, blurred, or notched.'},
+  {letter:'C',title:'Colour',desc:'The colour is not uniform — shades of brown, black, red, white, or blue.'},
+  {letter:'D',title:'Diameter',desc:'The mole is larger than 6mm (about the size of a pencil eraser).'},
+  {letter:'E',title:'Evolving',desc:'The mole is changing in size, shape, colour, or feel. New symptoms like itching or bleeding.'},
+];
+// mole_count is skipped in the questionnaire when AI analysis already detected it
+function shouldSkipQuestion(q){
+  return q.id==='mole_count'&&!!(st.skinAnalysis&&st.skinAnalysis.moleCountAnswer);
+}
+// ===== LOCALSTORAGE UTILITIES =====
+function getProfile(){try{return JSON.parse(localStorage.getItem('tmcProfile'))}catch(e){return null}}
+function saveProfile(p){try{localStorage.setItem('tmcProfile',JSON.stringify(p))}catch(e){}}
+function getLocationHistory(){try{return JSON.parse(localStorage.getItem('tmcLocationHistory'))||[]}catch(e){return[]}}
+function saveLocationHistory(h){try{localStorage.setItem('tmcLocationHistory',JSON.stringify(h))}catch(e){}}
+function getTravelDismissed(){try{return parseInt(localStorage.getItem('tmcTravelBannerDismissed'))||0}catch(e){return 0}}
+function setTravelDismissed(){try{localStorage.setItem('tmcTravelBannerDismissed',Date.now().toString())}catch(e){}}
+function clearProfile(){try{localStorage.removeItem('tmcProfile')}catch(e){}}
+// ===== UV & WEATHER LOGIC =====
+// EADO (European Association of Dermato-Oncology) UV Protection Scale
+function getUVBand(uv){
+  if(uv<=2)return{level:'LOW',color:'#4caf50',bg:'#e8f5e9',text:'#2e7d32'};
+  if(uv<=5)return{level:'MODERATE',color:'#ffb300',bg:'#fff8e1',text:'#f57f17'};
+  if(uv<=7)return{level:'HIGH',color:'#ff7043',bg:'#fff3e0',text:'#bf360c'};
+  if(uv<=10)return{level:'VERY HIGH',color:'#e53935',bg:'#ffebee',text:'#b71c1c'};
+  return{level:'EXTREME',color:'#8e24aa',bg:'#f3e5f5',text:'#4a148c'};
+}
+// Bias-corrected SPF recommendation per Gadare et al., MIT 2026 debiasing principle:
+// Monk tones 1-3 (lightest): move one EADO protection level up
+// Monk tones 7-10 (darker): standard EADO + equality note
+function getPersonalisedSPF(uv,monkTone){
+  const levels=[
+    {spf:null,msg:'No protection required'},
+    {spf:'30+',msg:'SPF 30+, hat, and sunglasses'},
+    {spf:'30–50',msg:'SPF 30–50, seek shade at solar noon'},
+    {spf:'50+',msg:'SPF 50+, avoid solar noon, cover up'},
+    {spf:'50+',msg:'SPF 50+, stay indoors at solar noon'},
+  ];
+  let idx=uv<=2?0:uv<=5?1:uv<=7?2:uv<=10?3:4;
+  let note=null;
+  if(monkTone<=3)idx=Math.min(idx+1,4);
+  if(monkTone>=7)note='Darker skin tones have lower natural SPF but equal melanoma risk — do not rely on skin tone as protection. Use stated SPF.';
+  return{...levels[idx],note};
+}
+// UV gauge SVG — half-circle arc with EADO-coloured band segments and needle
+function renderUVGaugeSVG(uv){
+  const cx=110,cy=100,r=88,sw=14;
+  const d2r=d=>d*Math.PI/180;
+  const pt=(a,rad)=>[cx+rad*Math.cos(d2r(a)),cy-rad*Math.sin(d2r(a))];
+  const seg=(a1,a2,col)=>{const[x1,y1]=pt(a1,r),[x2,y2]=pt(a2,r);return`<path d="M${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r} 0 0 1 ${x2.toFixed(1)},${y2.toFixed(1)}" stroke="${col}" stroke-width="${sw}" fill="none" stroke-linecap="butt"/>`;};
+  const uvN=Math.min(Math.max(uv||0,0),12);
+  const na=180-(uvN/12)*180;
+  const[nx,ny]=pt(na,74);
+  return`<svg viewBox="0 0 220 105" width="220" height="105" xmlns="http://www.w3.org/2000/svg">
+    <path d="M22,${cy} A${r},${r} 0 0 1 198,${cy}" stroke="#e8e8e8" stroke-width="${sw}" fill="none"/>
+    ${seg(180,150,'#4caf50')}${seg(150,105,'#ffb300')}${seg(105,75,'#ff7043')}${seg(75,30,'#e53935')}${seg(30,0,'#8e24aa')}
+    <line x1="${cx}" y1="${cy}" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" stroke="#1a2332" stroke-width="2.5" stroke-linecap="round"/>
+    <circle cx="${cx}" cy="${cy}" r="8" fill="#1a2332"/>
+    <text x="22" y="${cy+18}" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="9" fill="#4caf50" font-weight="600">LOW</text>
+    <text x="198" y="${cy+18}" text-anchor="end" font-family="DM Sans,sans-serif" font-size="9" fill="#8e24aa" font-weight="600">EXTREME</text>
+  </svg>`;
+}
+function getWeatherEmoji(code){
+  if(code===0||code===1)return'&#9728;&#65039;';if(code===2)return'&#9925;';if(code===3)return'&#9729;&#65039;';
+  if(code>=51&&code<=67)return'&#127783;&#65039;';if(code>=71&&code<=77)return'&#10052;&#65039;';
+  if(code>=80&&code<=82)return'&#127782;&#65039;';if(code>=95)return'&#9928;&#65039;';return'&#127780;&#65039;';
+}
+function getWeatherDesc(code){
+  const m={0:'Clear sky',1:'Mainly clear',2:'Partly cloudy',3:'Overcast',45:'Foggy',51:'Light drizzle',53:'Moderate drizzle',61:'Slight rain',63:'Moderate rain',65:'Heavy rain',71:'Light snow',80:'Light showers',81:'Moderate showers',95:'Thunderstorm'};
+  return m[code]||'Variable';
+}
+async function fetchWeatherAndUV(lat,lon){
+  try{
+    const[uvRes,wxRes]=await Promise.all([
+      fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=uv_index&timezone=auto`),
+      fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code,wind_speed_10m&timezone=auto`)
+    ]);
+    const uvD=await uvRes.json(),wxD=await wxRes.json();
+    return{uv:uvD.current.uv_index,temp:wxD.current.temperature_2m,weatherCode:wxD.current.weather_code,windSpeed:wxD.current.wind_speed_10m};
+  }catch(e){return null;}
+}
+async function reverseGeocode(lat,lon){
+  try{
+    const res=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,{headers:{'Accept-Language':'en','User-Agent':'TMCSkinCheckApp/0.3'}});
+    const d=await res.json();
+    return{city:d.address.city||d.address.town||d.address.village||d.address.county||'',country:d.address.country||'',country_code:d.address.country_code||''};
+  }catch(e){return{city:'',country:'',country_code:''};}
+}
+async function fetchCoordinatesFromPostcode(postcode){
+  try{
+    const pc=postcode.replace(/\s/g,'').toUpperCase();
+    const res=await fetch(`https://api.postcodes.io/postcodes/${pc}`);
+    const d=await res.json();
+    if(d.status===200&&d.result)return{lat:d.result.latitude,lon:d.result.longitude};
+    return null;
+  }catch(e){return null;}
+}
+async function getCurrentPosition(){
+  return new Promise((resolve,reject)=>{
+    if(!navigator.geolocation){reject(new Error('Geolocation not supported'));return;}
+    navigator.geolocation.getCurrentPosition(resolve,reject,{timeout:10000,enableHighAccuracy:false});
+  });
+}
+// ===== TRAVEL DETECTION =====
+function logLocationEntry(lat,lon,country,country_code){
+  let h=getLocationHistory();
+  h.push({lat,lon,country,country_code:country_code||'',timestamp:Date.now()});
+  if(h.length>90)h=h.slice(-90);
+  saveLocationHistory(h);
+}
+function checkTravelStatus(profile){
+  const h=getLocationHistory();
+  if(h.length<3)return{isAway:false,justReturned:false};
+  const home=profile.homeCountry||'gb';
+  const getCC=e=>e.country_code||e.country;
+  const last3=h.slice(-3);
+  const allAway=last3.every(e=>getCC(e)&&getCC(e)!==home);
+  const currentCC=getCC(h[h.length-1]);
+  const currentlyHome=currentCC===home;
+  if(allAway)return{isAway:true,justReturned:false};
+  if(profile.awayFromHome&&currentlyHome)return{isAway:false,justReturned:true};
+  return{isAway:false,justReturned:false};
+}
+function shouldShowTravelBanner(){
+  const dismissed=getTravelDismissed();
+  if(!dismissed)return true;
+  return(Date.now()-dismissed)>(30*24*60*60*1000);
+}
+// ===== RISK CALCULATIONS =====
+// Max possible score: 83 (questions) + 6 (skin type) + 20 (ABCDE) = 109
+function calculateRiskScore(){
+  let total=0;
+  questions.forEach(q=>{const a=st.answers[q.id];if(a){const opt=q.options.find(o=>o.value===a);if(opt)total+=opt.score;}});
+  if(st.skinType){const sk=skinTypes.find(s=>s.id===st.skinType);if(sk)total+=sk.score;}
+  total+=Object.values(st.abcdeAnswers).filter(Boolean).length*4;
+  return Math.min(Math.max(Math.round((total/109)*100),5),95);
+}
+function getRiskLevel(score){if(score<30)return'LOW';if(score<50)return'MODERATE';if(score<70)return'HIGH';return'VERY HIGH';}
+function getCheckFrequency(level){
+  const f={LOW:'Every 2 years',MODERATE:'Annually',HIGH:'Every 6 months','VERY HIGH':'Every 3 months (urgent — see a dermatologist)'};
+  return f[level]||'Annually';
+}
+function getRecommendedService(riskLevel,changingMoles){
+  if(riskLevel==='VERY HIGH'||riskLevel==='HIGH'||changingMoles==='yes_multiple')
+    return{name:'Full Body Mole Check',desc:'Comprehensive head-to-toe examination by a consultant dermatologist using advanced dermoscopy. Every mole mapped, measured, and assessed.',price:'from £250'};
+  if(riskLevel==='MODERATE'||changingMoles==='yes_one')
+    return{name:'Targeted Mole Check',desc:'Focused examination of specific moles or areas of concern using dermoscopy. Ideal if you have particular moles you\'re worried about.',price:'from £150'};
+  return{name:'Skin Health Screen',desc:'A professional baseline assessment to establish your skin health profile and set up ongoing monitoring. Perfect for peace of mind.',price:'from £100'};
+}
+function getNearestClinics(postcode){
+  const pc=(postcode||'').toUpperCase().replace(/\s/g,'');
+  return clinics.map(c=>({...c,score:c.postcodes.reduce((best,p)=>pc.startsWith(p)?Math.max(best,p.length):best,0)})).sort((a,b)=>b.score-a.score);
+}
+function getKeyRiskFactorBullets(answers,skinType,abcdeAnswers){
+  const b=[];
+  const fh=answers.family_history;
+  if(fh==='yes_immediate')b.push('Family history of skin cancer (immediate family)');
+  else if(fh==='yes_extended')b.push('Family history of skin cancer (extended family)');
+  const ph=answers.personal_history;
+  if(ph==='yes_cancer')b.push('Previous personal skin cancer diagnosis');
+  else if(ph==='yes_mole')b.push('Suspicious mole previously removed');
+  const sb=answers.sunburn_history;
+  if(sb==='frequently')b.push('Frequent sunburn history, including blistering burns');
+  else if(sb==='occasionally')b.push('Occasional sunburn history');
+  const su=answers.sunbed_use;
+  if(su==='regularly')b.push('Regular sunbed use');
+  else if(su==='occasionally'||su==='past')b.push('Previous sunbed use');
+  const cm=answers.changing_moles;
+  if(cm==='yes_multiple')b.push('Multiple changing moles noted');
+  else if(cm==='yes_one')b.push('One changing mole noted');
+  const mc=answers.mole_count;
+  if(mc==='50plus')b.push('50+ moles on body');
+  const abcdeCount=Object.values(abcdeAnswers||{}).filter(Boolean).length;
+  if(abcdeCount>0){const letters=Object.entries(abcdeAnswers||{}).filter(([,v])=>v).map(([k])=>k).join(', ');b.push(`ABCDE concerns: ${letters}`);}
+  if(skinType<=2)b.push('Very fair skin — highest UV sensitivity');
+  if(b.length===0)b.push('No major risk factors identified in your profile');
+  return b.slice(0,5);
+}
+function generateRecommendations(profile,wd){
+  const recs=[];
+  const{answers,skinType,riskLevel}=profile;
+  const uv=wd&&wd.uv!=null?wd.uv:null;
+  const hour=new Date().getHours();
+  if(answers.sunscreen_use==='rarely'||answers.sunscreen_use==='holiday')
+    recs.push('Apply SPF 30+ sunscreen daily — UV rays penetrate cloud cover year-round. This is the single most effective preventive measure per NHS skin cancer prevention guidance.');
+  else if(uv!=null&&uv>=3){
+    const sp=getPersonalisedSPF(uv,skinType);
+    recs.push(`Today\'s UV is ${Math.round(uv)} (${getUVBand(uv).level}). ${sp.msg}${sp.spf?' — reapply every 2 hours when outdoors':''}.`);
+  }
+  if(answers.changing_moles==='yes_multiple'||answers.changing_moles==='yes_one')
+    recs.push('You reported mole changes. EADO guidance recommends any changing mole be assessed by a dermatologist promptly. Do not delay booking a check.');
+  if(answers.family_history==='yes_immediate'||answers.family_history==='yes_extended')
+    recs.push('With a family history of skin cancer, annual professional skin checks are strongly recommended — earlier and more frequently than the general population guideline (NHS guidance).');
+  if(riskLevel==='VERY HIGH'||riskLevel==='HIGH')
+    recs.push('Your risk profile indicates a professional full-body mole check every 6 months is recommended. Early detection dramatically improves outcomes (NHS Cancer Research data).');
+  else if(riskLevel==='MODERATE'&&!recs.some(r=>r.includes('annually')))
+    recs.push('We recommend a professional skin check annually. Your profile includes factors that warrant regular monitoring by a qualified dermatologist.');
+  if(answers.mole_count==='50plus'||answers.mole_count==='20-50')
+    recs.push('With a high mole count, keep a monthly photo log of any moles that change in size, shape, or colour. Use the ABCDE rule as your guide.');
+  if(answers.outdoor_work==='both'||answers.outdoor_work==='work_outdoor')
+    recs.push('Your high outdoor UV exposure means protective clothing (UPF 50+), a wide-brimmed hat, and UV-blocking sunglasses are essential alongside daily SPF use.');
+  if(hour>=11&&hour<=15&&uv!=null&&uv>=3)
+    recs.push('&#9728;&#65039; You are currently in the peak UV window (11:00–15:00). Seek shade, wear a hat, and avoid prolonged direct sun exposure right now.');
+  if(skinType>=7&&!recs.some(r=>r.includes('melanoma risk')))
+    recs.push('Research shows darker skin tones carry equal melanoma risk to lighter tones but face lower likelihood of early detection. Regular professional checks are equally important regardless of skin tone.');
+  return recs.slice(0,5);
+}
+function getFitzpatrickLabel(monkTone){
+  if(monkTone<=2)return'Type I — Very fair';if(monkTone<=4)return'Type II–III — Fair to medium';
+  if(monkTone<=6)return'Type III–IV — Medium to olive';if(monkTone<=8)return'Type V — Brown';
+  return'Type VI — Dark brown/black';
+}
+function getPersonalisedSummary(profile){
+  const{skinType,riskLevel,answers}=profile;
+  const light=skinType<=3,dark=skinType>=7;
+  const fh=answers.family_history==='yes_immediate'||answers.family_history==='yes_extended';
+  const cm=answers.changing_moles==='yes_multiple'||answers.changing_moles==='yes_one';
+  const burn=answers.sunburn_history==='frequently';
+  if(riskLevel==='VERY HIGH')return`Based on multiple high-risk factors${fh?' including family history of skin cancer':cm?' including changing moles':''}, you are in a very high risk category requiring prompt professional assessment.`;
+  if(riskLevel==='HIGH')return`As someone with ${light?'fair skin':'dark skin tone with equal melanoma risk'}${fh?' and a family history of skin cancer':burn?' and a history of significant sunburn':''}, you are in a higher risk category for skin cancer.`;
+  if(riskLevel==='MODERATE')return`Your profile shows ${cm?'some mole changes':'several moderate risk factors'} that make regular professional skin checks an important part of your healthcare.`;
+  return`Your risk profile is currently low, but regular skin self-checks and annual professional assessments remain recommended for everyone.`;
+}
+function getGreeting(){const h=new Date().getHours();if(h>=5&&h<12)return'Good morning';if(h>=12&&h<17)return'Good afternoon';if(h>=17&&h<22)return'Good evening';return'Hello';}
+function formatDateLong(d){return d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});}
+// ===== APP STATE =====
+const st={
+  screen:'welcome',navDirection:'forward',history:['welcome'],
+  name:'',email:'',postcode:'',consentData:false,consentMarketing:false,
+  skinType:null,skinAnalysis:null,capturedPhoto:null,armApiKey:'',
+  cameraStream:null,cameraAnimFrame:null,
+  answers:{},currentQuestion:0,abcdeAnswers:{},
+  consentLocation:false,consentTravel:false,lat:null,lon:null,city:'',country:'',country_code:'',
+  riskScore:null,riskLevel:null,
+  profile:null,weatherData:null,currentCity:'',showTravelBanner:false,profileExpanded:false,
+};
+// ===== NAVIGATION =====
+function navigate(screen){
+  st.navDirection='forward';st.history.push(screen);st.screen=screen;
+  window.scrollTo(0,0);render();
+}
+function goBack(){
+  if(st.screen==='arm_camera')stopCamera();
+  if(st.history.length>1){
+    st.navDirection='back';st.history.pop();
+    st.screen=st.history[st.history.length-1];
+    window.scrollTo(0,0);render();
+  }
+}
+function showToast(msg){
+  const t=document.createElement('div');
+  t.textContent=msg;
+  t.style.cssText='position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:#1a2332;color:white;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;white-space:nowrap;animation:fadeIn .3s ease-out';
+  document.body.appendChild(t);setTimeout(()=>t.remove(),2500);
+}
+function getProgress(){
+  const screens=['welcome','email','consent','arm_camera','questionnaire','abcde','consent_location','consent_travel','consent_notifications','loading','homepage'];
+  if(st.screen==='questionnaire'){
+    const vis=questions.filter(q=>!shouldSkipQuestion(q));
+    const base=4/11;return Math.round((base+(st.currentQuestion/vis.length)*(1/11))*100);
+  }
+  const idx=screens.indexOf(st.screen);
+  return Math.round((Math.max(idx,0)/(screens.length-1))*100);
+}
+function getProgressLabel(){
+  if(st.screen==='questionnaire'){
+    const vis=questions.filter(q=>!shouldSkipQuestion(q));
+    const visIdx=vis.findIndex(q=>q.id===questions[st.currentQuestion].id)+1;
+    return`STEP 3 OF 5 — QUESTION ${visIdx} OF ${vis.length}`;
+  }
+  const labels={
+    welcome:'',email:'STEP 1 OF 5 — YOUR DETAILS',consent:'STEP 1 OF 5 — PRIVACY &amp; CONSENT',
+    arm_camera:'STEP 2 OF 5 — ARM ANALYSIS',
+    abcde:'STEP 4 OF 5 — SELF CHECK',
+    consent_location:'STEP 5 OF 5 — LOCATION',consent_travel:'STEP 5 OF 5 — TRAVEL',
+    consent_notifications:'STEP 5 OF 5 — REMINDERS',loading:'BUILDING YOUR PROFILE…',
+  };
+  return labels[st.screen]||'';
+}
+function renderFooter(){return`<div class="screen-footer">Powered by <a href="https://themoleclinic.co.uk" target="_blank">The Mole Clinic</a></div>`;}
+function renderHeader(showBack=true){
+  if(st.screen==='welcome'||st.screen==='homepage')return'';
+  const micro=['questionnaire','arm_camera','abcde'].includes(st.screen);
+  const microMsg=['Great start — just a few more questions',"You're halfway there",'Your profile is taking shape','Nearly done — almost ready'][Math.floor(getProgress()/26)%4]||'';
+  return`<div class="header">
+    ${showBack?'<button class="header-back" onclick="goBack()">&#8592;</button>':'<div></div>'}
+    <div><img src="https://themoleclinic.co.uk/wp-content/uploads/2025/02/MoleClinic-Ver-White2.png" alt="The Mole Clinic" style="height:32px;width:auto;display:block;"></div><div style="width:44px"></div>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" style="width:${getProgress()}%"></div></div>
+  <div class="progress-label">${getProgressLabel()}</div>
+  ${micro?`<div class="progress-microcopy">${microMsg}</div>`:''}`;
+}
+// ===== CAMERA / AI ANALYSIS =====
+function stopCamera(){
+  if(st.cameraAnimFrame){cancelAnimationFrame(st.cameraAnimFrame);st.cameraAnimFrame=null;}
+  if(st.cameraStream){st.cameraStream.getTracks().forEach(t=>t.stop());st.cameraStream=null;}
+}
+function showCameraState(s){
+  ['A','B','C'].forEach(id=>{
+    const el=document.getElementById('cam-state-'+id);
+    if(el)el.style.display=(id===s)?'':'none';
+  });
+}
+async function startCamera(){
+  showCameraState('B');
+  const video=document.getElementById('camVideo');
+  const canvas=document.getElementById('camCanvas');
+  if(!video||!canvas){showCameraState('A');return;}
+  try{
+    let stream;
+    try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});}
+    catch(e){stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});}
+    st.cameraStream=stream;
+    video.srcObject=stream;
+    await new Promise(res=>{video.onloadedmetadata=res;});
+    await video.play();
+    startOverlay(video,canvas);
+  }catch(e){
+    showToast('Camera access denied — please allow camera permission.');
+    showCameraState('A');
+  }
+}
+function startOverlay(video,canvas){
+  function draw(){
+    const vw=video.videoWidth||video.clientWidth||320;
+    const vh=video.videoHeight||video.clientHeight||240;
+    canvas.width=vw;canvas.height=vh;
+    const ctx=canvas.getContext('2d');
+    ctx.clearRect(0,0,vw,vh);
+    // Draw dashed arm-guide oval (horizontal ellipse in centre of frame)
+    const cx=vw/2,cy=vh/2,rx=vw*0.37,ry=vh*0.22;
+    ctx.strokeStyle='rgba(46,196,182,0.88)';
+    ctx.lineWidth=Math.max(2.5,vw*0.007);
+    ctx.setLineDash([14,7]);
+    ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);ctx.stroke();
+    ctx.setLineDash([]);
+    st.cameraAnimFrame=requestAnimationFrame(draw);
+  }
+  draw();
+}
+function capturePhoto(){
+  const video=document.getElementById('camVideo');
+  if(!video||!video.videoWidth)return;
+  const c=document.createElement('canvas');
+  c.width=video.videoWidth;c.height=video.videoHeight;
+  c.getContext('2d').drawImage(video,0,0);
+  const dataUrl=c.toDataURL('image/jpeg',0.85);
+  stopCamera();
+  st.capturedPhoto=dataUrl;
+  showCameraState('C');
+  const stC=document.getElementById('cam-state-c');
+  if(stC)stC.innerHTML=`<div class="content animate-in"><h2 class="title-lg">Analysing…</h2><div class="cam-spinner-wrap"><div class="cam-spinner"></div><div style="font-size:14px;color:var(--tmc-gray-600)">Analysing your arm with Claude AI</div><div style="font-size:12px;color:var(--tmc-gray-400);margin-top:4px">This takes a few seconds</div></div></div>`;
+  analyseArmPhoto(dataUrl).then(handleAnalysisResult).catch(handleAnalysisError);
+}
+// Calls Anthropic Vision API (claude-sonnet-4-6) directly from browser
+async function analyseArmPhoto(dataUrl){
+  const apiKey=localStorage.getItem('tmcApiKey')||st.armApiKey||'';
+  if(!apiKey)throw new Error('No API key provided');
+  const base64=dataUrl.split(',')[1];
+  const mediaType=dataUrl.split(';')[0].split(':')[1]||'image/jpeg';
+  const res=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'Authorization':`Bearer ${apiKey}`,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true',
+    },
+    body:JSON.stringify({
+      model:'claude-sonnet-4-6',
+      max_tokens:256,
+      messages:[{role:'user',content:[
+        {type:'image',source:{type:'base64',media_type:mediaType,data:base64}},
+        {type:'text',text:'Analyse this arm photo. Provide:\n1. SKIN_TONE: 1-10 on the Monk Skin Tone Scale (MST). 1-2=very light ivory, 3-4=light beige, 5-6=medium olive/tan, 7-8=medium-dark brown, 9-10=deep dark brown/black.\n2. MOLE_COUNT: count of visible moles/dark spots on the arm. Answer: under7, 7to10, or 11plus.\n3. CONFIDENCE: low, medium, or high.\n\nReply ONLY in this exact format:\nSKIN_TONE: [number]\nMOLE_COUNT: [under7|7to10|11plus]\nCONFIDENCE: [low|medium|high]'}
+      ]}]
+    })
+  });
+  if(!res.ok){const err=await res.json().catch(()=>({}));throw new Error(err.error?.message||`HTTP ${res.status}`);}
+  const data=await res.json();
+  return data.content[0].text;
+}
+function handleAnalysisResult(text){
+  const mstM=text.match(/SKIN_TONE:\s*(\d+)/i);
+  const moleM=text.match(/MOLE_COUNT:\s*(under7|7to10|11plus)/i);
+  const confM=text.match(/CONFIDENCE:\s*(low|medium|high)/i);
+  const mst=mstM?Math.min(10,Math.max(1,parseInt(mstM[1]))):null;
+  const moleRaw=moleM?moleM[1].toLowerCase():null;
+  const confidence=confM?confM[1].toLowerCase():'low';
+  // Bataille et al. 2015 (King's College London): arm mole count predicts body burden
+  // 7-10 arm moles → ~50+ body moles; 11+ arm → elevated melanoma risk
+  const moleMap={under7:'under10','7to10':'50plus','11plus':'50plus'};
+  const moleCountAnswer=moleRaw?(moleMap[moleRaw]||'under10'):null;
+  if(mst)st.skinType=mst;
+  if(moleCountAnswer)st.answers.mole_count=moleCountAnswer;
+  st.skinAnalysis={mst,moleRaw,moleCountAnswer,confidence,photoDataUrl:st.capturedPhoto};
+  showAnalysisResults();
+}
+function handleAnalysisError(e){
+  const stC=document.getElementById('cam-state-c');
+  if(!stC)return;
+  stC.innerHTML=`<div class="content animate-in">
+    <h2 class="title-lg">Analysis failed</h2>
+    <div class="cam-error-box">
+      <div style="font-size:15px;font-weight:600;color:var(--tmc-coral);margin-bottom:6px">Could not analyse photo</div>
+      <div style="font-size:13px;color:var(--tmc-gray-600)">${e.message||'Please check your API key and try again.'}</div>
+    </div>
+    <div style="margin-top:20px;display:flex;flex-direction:column;gap:10px">
+      <button class="btn-primary" onclick="showCameraState('A')">Try Again</button>
+      <button class="btn-ghost" onclick="proceedWithoutAnalysis()">Skip — I'll enter details manually</button>
+    </div>
+  </div>`;
+}
+function showAnalysisResults(){
+  const sa=st.skinAnalysis;
+  const stC=document.getElementById('cam-state-c');
+  if(!stC)return;
+  const skinTone=sa.mst?skinTypes.find(s=>s.id===sa.mst):null;
+  const moleLabels={under7:'Fewer than 7',['7to10']:'7–10',['11plus']:'11 or more'};
+  const bodyLabels={under10:'Fewer than 10 (typical)',['50plus']:'50 or more (elevated)'};
+  stC.innerHTML=`<div class="content animate-in">
+    <h2 class="title-lg">&#10003; Analysis complete</h2>
+    ${st.capturedPhoto?`<img src="${st.capturedPhoto}" class="cam-result-img" alt="Captured arm photo" style="margin-top:14px">`:``}
+    <div class="cam-result-card">
+      <div style="font-size:13px;font-weight:700;color:var(--tmc-teal-dark);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">AI Analysis Results</div>
+      ${sa.mst?`<div class="cam-result-row">
+        <span class="cam-result-label">Skin tone (Monk Scale)</span>
+        <span class="cam-result-value"><span style="display:inline-block;width:16px;height:16px;border-radius:50%;background:${skinTone?.color||'#ccc'};border:1.5px solid rgba(0,0,0,.15);vertical-align:middle;margin-right:4px"></span>MST ${sa.mst}/10</span>
+      </div>`:``}
+      ${sa.moleRaw?`<div class="cam-result-row">
+        <span class="cam-result-label">Visible arm moles</span>
+        <span class="cam-result-value">${moleLabels[sa.moleRaw]||sa.moleRaw}</span>
+      </div>
+      <div class="cam-result-row">
+        <span class="cam-result-label">Estimated body moles</span>
+        <span class="cam-result-value">${bodyLabels[sa.moleCountAnswer]||sa.moleCountAnswer}</span>
+      </div>`:``}
+      <div class="cam-result-row">
+        <span class="cam-result-label">Confidence</span>
+        <span class="cam-result-value" style="text-transform:capitalize">${sa.confidence}</span>
+      </div>
+    </div>
+    <p style="font-size:11px;color:var(--tmc-gray-400);margin-top:10px;line-height:1.5">Arm mole count predicts body mole burden per Bataille et al. 2015 (King's College London). Body mole count question will be pre-filled in your questionnaire.</p>
+    <div style="margin-top:20px;display:flex;gap:10px">
+      <button class="btn-secondary" onclick="st.capturedPhoto=null;st.skinAnalysis=null;startCamera()" style="flex:1">Retake</button>
+      <button class="btn-primary" onclick="proceedFromAnalysis()" style="flex:1">Continue &#8594;</button>
+    </div>
+  </div>`;
+}
+function proceedWithoutAnalysis(){st.currentQuestion=0;navigate('questionnaire');}
+function proceedFromAnalysis(){st.currentQuestion=0;navigate('questionnaire');}
+// ===== RENDER FUNCTIONS =====
+function renderWelcome(){
+  return`<div class="screen">
+    <div class="welcome-hero animate-in">
+      <img src="https://themoleclinic.co.uk/wp-content/uploads/2025/02/MoleClinic-Ver-White2.png" alt="The Mole Clinic" class="welcome-hero-logo" style="height:90px;width:auto;display:block;">
+      <h1 class="title-xl">Free Skin<br>Health Check</h1>
+      <p class="subtitle">Get your personalised Mole Clinic Profile in minutes. Know your risk. Know your next step.</p>
+      <div class="welcome-stat animate-in-delay-1">&#128300; Over 16,000 people are diagnosed with melanoma in the UK each year.</div>
+      <div class="welcome-social-proof animate-in-delay-2">Used by patients across The Mole Clinic's UK clinics</div>
+    </div>
+    <div class="content">
+      <div class="feature-list">
+        <div class="feature-item animate-in-delay-1"><div class="feature-icon feature-icon-teal">&#129504;</div><div><div class="feature-title">AI Skin Analysis</div><div class="feature-desc">Camera analysis of your arm to detect your Monk skin tone and mole profile — powered by Claude AI</div></div></div>
+        <div class="feature-item animate-in-delay-2"><div class="feature-icon feature-icon-coral">&#9728;</div><div><div class="feature-title">Live UV &amp; Sun Safety</div><div class="feature-desc">Real-time UV index with personalised SPF recommendation for your skin tone</div></div></div>
+        <div class="feature-item animate-in-delay-3"><div class="feature-icon feature-icon-gold">&#128202;</div><div><div class="feature-title">Your Skin Safety Dashboard</div><div class="feature-desc">Personalised daily check-in: UV, risk summary, booking recommendations</div></div></div>
+      </div>
+      <div class="disclaimer animate-in-delay-4"><strong>Important:</strong> This is not a medical diagnosis. This tool helps you understand your skin cancer risk and recommends appropriate professional skin checks.</div>
+      <div class="trust-badge animate-in-delay-4">Your data stays on your device — we never sell your details</div>
+    </div>
+    <div class="bottom-action"><button class="btn-primary" onclick="navigate('email')">Start Your Free Check &#8594;</button></div>
+    ${renderFooter()}
+  </div>`;
+}
+function renderEmail(){
+  return`<div class="screen">
+    ${renderHeader()}
+    <div class="content animate-in">
+      <h2 class="title-lg">Let's start with<br>your details</h2>
+      <p class="subtitle">We'll use these to personalise your Skin Health Profile.</p>
+      <div style="margin-top:24px">
+        <div class="input-group"><label class="input-label">First name</label><input class="input-field" type="text" id="nameInput" placeholder="Your first name" value="${st.name}" autocomplete="given-name"></div>
+        <div class="input-group"><label class="input-label">Email address</label><input class="input-field" type="email" id="emailInput" placeholder="your@email.com" value="${st.email}" autocomplete="email"></div>
+        <div class="input-group"><label class="input-label">Postcode</label><input class="input-field" type="text" id="postcodeInput" placeholder="e.g. M1 2AB" value="${st.postcode}" maxlength="8" style="text-transform:uppercase" autocomplete="postal-code"></div>
+        <p style="font-size:12px;color:var(--tmc-gray-600);margin-top:4px">Your data is processed in accordance with GDPR. We'll never sell your details.</p>
+      </div>
+    </div>
+    <div class="bottom-action"><button class="btn-primary" id="emailNext" disabled>Continue &#8594;</button></div>
+    ${renderFooter()}
+  </div>`;
+}
+function renderConsent(){
+  return`<div class="screen">
+    ${renderHeader()}
+    <div class="content animate-in">
+      <h2 class="title-lg">Before we continue</h2>
+      <p class="subtitle">We need your consent to process your information.</p>
+      <div style="margin-top:24px">
+        <div class="card" style="margin-bottom:12px">
+          <div class="consent-row">
+            <div class="consent-checkbox ${st.consentData?'checked':''}" id="consentData"></div>
+            <div class="consent-text"><strong>Data processing consent</strong> (required)<br>I consent to The Mole Clinic collecting and processing my personal data for the purpose of generating my skin health risk profile, stored in accordance with GDPR. <a href="#">Privacy policy</a></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="consent-row">
+            <div class="consent-checkbox ${st.consentMarketing?'checked':''}" id="consentMarketing"></div>
+            <div class="consent-text"><strong>Marketing communications</strong> (optional)<br>I'd like to receive skin health tips and special offers from The Mole Clinic by email. Unsubscribe any time.</div>
+          </div>
+        </div>
+      </div>
+      <div class="disclaimer">Your photos and analysis data are processed locally and securely. No images are stored on our servers.</div>
+    </div>
+    <div class="bottom-action"><button class="btn-primary" id="consentNext" ${!st.consentData?'disabled':''}>Continue &#8594;</button></div>
+    ${renderFooter()}
+  </div>`;
+}
+function renderArmCamera(){
+  const savedKey=localStorage.getItem('tmcApiKey')||'';
+  return`<div class="screen">
+    ${renderHeader()}
+    <div id="cam-state-a" class="content animate-in">
+      <h2 class="title-lg">&#129504; Arm Skin Analysis</h2>
+      <p class="subtitle">We'll use your camera and Claude AI to detect your Monk skin tone and count visible moles on your arm — automatically filling in part of your profile.</p>
+      <div class="card" style="margin-top:20px">
+        <label class="input-label">Anthropic API Key</label>
+        <input class="input-field" type="password" id="camApiKeyInput" placeholder="sk-ant-api03-..." value="${savedKey}" autocomplete="off" style="margin-top:4px">
+        <p class="cam-api-note">Required for AI analysis. Stored locally on this device only. <a href="https://console.anthropic.com" target="_blank" style="color:var(--tmc-teal)">Get a key &#8594;</a></p>
+      </div>
+      <div class="photo-tips-list">
+        <div class="photo-tip-row"><div class="photo-tip-emoji">&#9728;&#65039;</div><div class="photo-tip-body"><strong>Good, even lighting</strong>Natural daylight or a bright room. Avoid shadows.</div></div>
+        <div class="photo-tip-row"><div class="photo-tip-emoji">&#128170;</div><div class="photo-tip-body"><strong>Extend your forearm</strong>Hold your arm flat, palm up. Roll up your sleeve to the elbow.</div></div>
+        <div class="photo-tip-row"><div class="photo-tip-emoji">&#128247;</div><div class="photo-tip-body"><strong>30–40 cm from camera</strong>Fill the frame with your forearm from wrist to elbow.</div></div>
+      </div>
+      <div style="margin-top:20px;display:flex;flex-direction:column;gap:12px">
+        <button class="btn-primary" id="camStartBtn">Start Camera &#8594;</button>
+        <button class="btn-ghost" onclick="proceedWithoutAnalysis()">Skip — I'll enter details manually</button>
+      </div>
+    </div>
+    <div id="cam-state-b" style="display:none" class="content-tight">
+      <h2 class="title-lg" style="margin-bottom:14px">Position your arm</h2>
+      <div class="cam-wrap">
+        <video id="camVideo" class="cam-video" autoplay playsinline muted></video>
+        <canvas id="camCanvas" class="cam-canvas"></canvas>
+        <div class="cam-guide-pill">Align your forearm within the oval</div>
+      </div>
+      <div style="text-align:center">
+        <button class="cam-shutter" id="camCaptureBtn" title="Take photo" aria-label="Capture photo"></button>
+        <p style="font-size:12px;color:var(--tmc-gray-400);margin-top:10px">Tap when your arm is centred in the oval</p>
+      </div>
+      <div style="margin-top:10px;text-align:center">
+        <button class="btn-ghost" onclick="stopCamera();showCameraState('A')">&#8592; Back to setup</button>
+      </div>
+    </div>
+    <div id="cam-state-c" style="display:none">
+      <div class="content animate-in"><h2 class="title-lg">Analysing…</h2></div>
+    </div>
+    ${renderFooter()}
+  </div>`;
+}
+function renderQuestionnaire(){
+  const q=questions[st.currentQuestion];
+  const sel=st.answers[q.id];
+  const nudge=riskNudges[q.id]&&sel&&riskNudges[q.id][sel]
+    ?`<div class="risk-nudge"><div class="risk-nudge-icon">&#8505;</div><div class="risk-nudge-text">${riskNudges[q.id][sel]}</div></div>`:'';
+  const vis=questions.filter(vq=>!shouldSkipQuestion(vq));
+  const isLastVis=vis[vis.length-1]?.id===q.id;
+  return`<div class="screen">
+    ${renderHeader()}
+    <div class="content" style="animation:slideInRight .3s ease-out">
+      <h2 class="title-lg">${q.question}</h2>
+      ${q.subtitle?`<p class="subtitle-sm">${q.subtitle}</p>`:''}
+      ${q.id==='mole_count'&&st.skinAnalysis?.moleCountAnswer?`<div style="background:var(--tmc-teal-light);border:1px solid rgba(46,196,182,.35);border-radius:var(--radius-sm);padding:10px 14px;font-size:13px;color:var(--tmc-teal-dark);margin-bottom:12px">&#10003; Pre-filled from your arm analysis</div>`:''}
+      <div style="margin-top:20px">
+        ${q.options.map(opt=>`<div class="option-card ${sel===opt.value?'selected':''}" data-answer="${opt.value}">
+          <div class="radio"></div>
+          <div><div class="option-label">${opt.label}</div>${opt.desc?`<div class="option-desc">${opt.desc}</div>`:''}</div>
+        </div>`).join('')}
+      </div>
+      ${nudge}
+    </div>
+    <div class="bottom-action"><button class="btn-primary" id="questionNext" ${!sel?'disabled':''}>${isLastVis?'Continue &#8594;':'Next Question &#8594;'}</button></div>
+    ${renderFooter()}
+  </div>`;
+}
+function renderABCDE(){
+  return`<div class="screen">
+    ${renderHeader()}
+    <div class="content animate-in">
+      <h2 class="title-lg">The ABCDE<br>Self-Check</h2>
+      <p class="subtitle-sm">Dermatologists use the ABCDE rule to assess moles. Have you noticed any of these in your moles?</p>
+      <div class="abcde-cards">
+        ${abcdeItems.map(item=>`<div class="abcde-card ${st.abcdeAnswers[item.letter]?'checked':''}" data-abcde="${item.letter}">
+          <div class="abcde-letter">${item.letter}</div>
+          <div style="flex:1"><div class="abcde-title">${item.title}</div><div class="abcde-desc">${item.desc}</div></div>
+          <div class="consent-checkbox ${st.abcdeAnswers[item.letter]?'checked':''}" style="margin-top:4px"></div>
+        </div>`).join('')}
+      </div>
+      <div class="disclaimer" style="margin-top:16px"><strong>Don't worry</strong> — noticing these features doesn't mean you have skin cancer. It simply means a professional check is recommended.</div>
+    </div>
+    <div class="bottom-action"><button class="btn-primary" onclick="navigate('consent_location')">Continue &#8594;</button></div>
+    ${renderFooter()}
+  </div>`;
+}
+function renderConsentLocation(){
+  return`<div class="screen">
+    ${renderHeader()}
+    <div class="content animate-in">
+      <div class="consent-icon">&#128205;</div>
+      <h2 class="title-lg">Enable Location Services</h2>
+      <p class="subtitle">To show you real-time UV index and personalised sun safety recommendations, we'd like to access your device location. This is stored only on your device and never sent to our servers.</p>
+      <div class="card" style="margin-top:24px">
+        <div class="toggle-wrap">
+          <div><div class="toggle-label-text">Allow location access</div><div class="toggle-label-sub">Triggers a browser permission request</div></div>
+          <label class="toggle-switch"><input type="checkbox" id="locationToggle" ${st.consentLocation?'checked':''}><span class="toggle-slider"></span></label>
+        </div>
+      </div>
+      <div class="consent-info-box">Your location is processed entirely on this device and never transmitted to our servers or third parties. You can revoke this permission at any time in your browser settings.</div>
+      ${st.consentLocation
+        ?`<div class="consent-success-box"><span>&#10003;</span><span>Location access granted. We'll fetch live UV data for your area.</span></div>`
+        :`<p style="margin-top:12px;font-size:13px;color:var(--tmc-gray-400);text-align:center">You can use the app without location — UV data will not be available.</p>`}
+    </div>
+    <div class="bottom-action"><button class="btn-primary" onclick="afterLocationConsent()">Continue &#8594;</button></div>
+    ${renderFooter()}
+  </div>`;
+}
+function renderConsentTravel(){
+  return`<div class="screen">
+    ${renderHeader()}
+    <div class="content animate-in">
+      <div class="consent-icon">&#9992;</div>
+      <h2 class="title-lg">Travel &amp; Holiday Detection</h2>
+      <p class="subtitle">We can monitor location changes to detect when you've been abroad and remind you to book a post-holiday skin check — a clinically important time to review your skin. Location history is stored only on this device.</p>
+      <div class="card" style="margin-top:24px">
+        <div class="toggle-wrap">
+          <div><div class="toggle-label-text">Enable travel detection</div><div class="toggle-label-sub">Detects country changes and prompts post-holiday check</div></div>
+          <label class="toggle-switch"><input type="checkbox" id="travelToggle" ${st.consentTravel?'checked':''}><span class="toggle-slider"></span></label>
+        </div>
+      </div>
+      <div class="consent-info-box">Location history (country-level) is stored only on this device. No data leaves your phone.</div>
+    </div>
+    <div class="bottom-action"><button class="btn-primary" onclick="navigate('consent_notifications')">Continue &#8594;</button></div>
+    ${renderFooter()}
+  </div>`;
+}
+function renderConsentNotifications(){
+  return`<div class="screen">
+    ${renderHeader()}
+    <div class="content animate-in">
+      <div class="consent-icon">&#128276;</div>
+      <h2 class="title-lg">Stay Sun Safe Daily</h2>
+      <p class="subtitle">Bookmark this app and check in each morning for your daily UV index and personalised sun safety advice. Push notification reminders are coming in a future update.</p>
+      <div class="card" style="margin-top:24px;text-align:center;padding:28px">
+        <div style="font-size:40px;margin-bottom:12px">&#128278;</div>
+        <div style="font-size:15px;font-weight:600;color:var(--tmc-navy);margin-bottom:6px">Bookmark this app</div>
+        <div style="font-size:13px;color:var(--tmc-gray-600);line-height:1.5">Add to your home screen for quick daily access to your UV safety dashboard.</div>
+      </div>
+      <div class="consent-info-box" style="margin-top:16px">&#128293; Push notifications will be available in a future update. Check back soon.</div>
+    </div>
+    <div class="bottom-action"><button class="btn-primary" onclick="finishOnboarding()">Got it &#8594;</button></div>
+    ${renderFooter()}
+  </div>`;
+}
+function renderLoading(){
+  return`<div class="screen">
+    <div style="background:#2ec4b6;padding:14px 20px;text-align:center;position:sticky;top:0;z-index:100"><img src="https://themoleclinic.co.uk/wp-content/uploads/2025/02/MoleClinic-Ver-White2.png" alt="The Mole Clinic" style="height:36px;width:auto;"></div>
+    <div class="loading-screen">
+      <div class="loading-body-wrap">
+        <svg class="loading-body-svg" viewBox="0 0 100 200" width="100" height="200" xmlns="http://www.w3.org/2000/svg">
+          <ellipse cx="50" cy="16" rx="14" ry="13" fill="none" stroke="var(--tmc-teal)" stroke-width="2"/>
+          <rect x="43" y="28" width="14" height="11" rx="3" fill="none" stroke="var(--tmc-teal)" stroke-width="2"/>
+          <path d="M22 37 Q22 34 32 33 L44 32 L56 32 L68 33 Q78 34 78 37 L76 67 L24 67 Z" fill="none" stroke="var(--tmc-teal)" stroke-width="2"/>
+          <path d="M24 40 Q18 43 16 52 L13 90 Q12 95 18 96 Q24 97 25 92 L27 67" fill="none" stroke="var(--tmc-teal)" stroke-width="2"/>
+          <path d="M76 40 Q82 43 84 52 L87 90 Q88 95 82 96 Q76 97 75 92 L73 67" fill="none" stroke="var(--tmc-teal)" stroke-width="2"/>
+          <path d="M24 67 L23 103 Q24 112 32 114 L68 114 Q76 112 77 103 L76 67 Z" fill="none" stroke="var(--tmc-teal)" stroke-width="2"/>
+          <path d="M32 114 Q26 116 24 123 L23 130 L77 130 L76 123 Q74 116 68 114 Z" fill="none" stroke="var(--tmc-teal)" stroke-width="2"/>
+          <path d="M23 130 L21 178 Q20 185 28 186 Q36 187 38 180 L42 130 Z" fill="none" stroke="var(--tmc-teal)" stroke-width="2"/>
+          <path d="M77 130 L79 178 Q80 185 72 186 Q64 187 62 180 L58 130 Z" fill="none" stroke="var(--tmc-teal)" stroke-width="2"/>
+        </svg>
+        <div class="loading-scan-line"></div>
+      </div>
+      <h2 class="title-md" style="margin-bottom:10px">Building your profile</h2>
+      <div class="loading-msg" id="loadingMsg">Analysing your risk profile…</div>
+    </div>
+    ${renderFooter()}
+  </div>`;
+}
+// ===== HOMEPAGE HELPERS =====
+function getDefaultSPFRec(monkTone){
+  if(monkTone<=3)return'We recommend <strong>SPF 50+</strong> as your daily minimum given your skin type.';
+  if(monkTone<=6)return'We recommend <strong>SPF 30–50</strong> as your daily minimum.';
+  return'Apply <strong>SPF 30+</strong> daily — melanoma risk is equal across all skin tones regardless of natural pigmentation.';
+}
+function buildUVCardHtml(wd,p,hour){
+  const isPeak=hour>=11&&hour<=15;
+  if(wd&&wd.uv!=null){
+    const band=getUVBand(wd.uv),spf=getPersonalisedSPF(wd.uv,p.skinType),showPeak=isPeak&&wd.uv>=3;
+    const spfAction=spf.spf?(spf.msg.replace(/^SPF [^,]+,\s*/,'')||spf.msg).replace(/^./,c=>c.toUpperCase()):'';
+    return`<div id="hp-uv-loading" style="display:none"></div><div id="hp-uv-data">
+      <div class="uv-gauge-wrap" id="hp-uv-gauge">${renderUVGaugeSVG(wd.uv)}</div>
+      <div class="uv-value-row"><div class="uv-value" id="hp-uv-value">${Math.round(wd.uv)}</div><div class="uv-value-label">UV Index</div></div>
+      <div class="uv-level-badge" id="hp-uv-level" style="background:${band.bg};color:${band.text}">${band.level}</div>
+      <div class="uv-spf-rec" id="hp-spf-msg">${spf.spf?`Based on your current location, the current weather and your skin profile, we recommend <strong>SPF ${spf.spf}</strong> today. ${spfAction}.`:'No sun protection required at current UV levels.'}${spf.note?`<div class="uv-spf-note">${spf.note}</div>`:''}</div>
+      <div class="uv-peak-alert" id="hp-peak-uv" style="display:${showPeak?'block':'none'}">&#9728;&#65039; You are in the peak UV window right now (11:00–15:00)</div>
+      <div class="uv-weather-row" id="hp-weather-summary"><span style="font-size:20px">${getWeatherEmoji(wd.weatherCode)}</span><span>${Math.round(wd.temp)}°C · ${getWeatherDesc(wd.weatherCode)}</span></div>
+    </div>`;
+  }
+  if(!p.consentLocation){
+    const defSPF=getDefaultSPFRec(p.skinType);
+    if(p.postcode){
+      return`<div id="hp-uv-loading" class="uv-loading-state"><div class="uv-loading-spinner"></div><div style="font-size:13px;color:var(--tmc-gray-400)">Fetching UV data for your area…</div><div class="uv-spf-rec" style="margin-top:12px">${defSPF}</div></div>
+      <div id="hp-uv-data" style="display:none">
+        <div class="uv-gauge-wrap" id="hp-uv-gauge"></div>
+        <div class="uv-value-row"><div class="uv-value" id="hp-uv-value">—</div><div class="uv-value-label">UV Index</div></div>
+        <div class="uv-level-badge" id="hp-uv-level" style="display:none"></div>
+        <div class="uv-spf-rec" id="hp-spf-msg" style="display:none"></div>
+        <div id="hp-peak-uv" class="uv-peak-alert" style="display:none"></div>
+        <div id="hp-weather-summary" class="uv-weather-row" style="display:none"></div>
+      </div>`;
+    }
+    return`<div id="hp-uv-loading" style="display:none"></div><div id="hp-uv-data"><div class="uv-unavailable">
+      <div class="uv-unavailable-icon">&#128205;</div><div style="font-size:14px;font-weight:600;color:var(--tmc-navy)">Location not enabled</div>
+      <div style="margin-top:4px;font-size:12px">Enable location permission in your browser to see live UV data for your area.</div>
+    </div><div class="uv-spf-rec" style="margin-top:12px">${defSPF}</div></div>`;
+  }
+  return`<div id="hp-uv-loading" class="uv-loading-state"><div class="uv-loading-spinner"></div><div style="font-size:13px;color:var(--tmc-gray-400)">Fetching UV data…</div><div class="uv-spf-rec" style="margin-top:12px">${getDefaultSPFRec(p.skinType)}</div></div>
+  <div id="hp-uv-data" style="display:none">
+    <div class="uv-gauge-wrap" id="hp-uv-gauge"></div>
+    <div class="uv-value-row"><div class="uv-value" id="hp-uv-value">—</div><div class="uv-value-label">UV Index</div></div>
+    <div class="uv-level-badge" id="hp-uv-level" style="display:none"></div>
+    <div class="uv-spf-rec" id="hp-spf-msg" style="display:none"></div>
+    <div id="hp-peak-uv" class="uv-peak-alert" style="display:none"></div>
+    <div id="hp-weather-summary" class="uv-weather-row" style="display:none"></div>
+  </div>`;
+}
+function renderHomepage(){
+  const p=st.profile;
+  if(!p){clearProfile();window.location.reload();return'';}
+  const wd=st.weatherData,hour=new Date().getHours();
+  const recs=generateRecommendations(p,wd);
+  const factors=getKeyRiskFactorBullets(p.answers,p.skinType,p.abcdeAnswers);
+  const checkFreq=getCheckFrequency(p.riskLevel);
+  const fitzType=getFitzpatrickLabel(p.skinType);
+  const summary=getPersonalisedSummary(p);
+  const skinTone=skinTypes.find(s=>s.id===p.skinType);
+  const riskTagClass={LOW:'tag-low',MODERATE:'tag-moderate',HIGH:'tag-high','VERY HIGH':'tag-veryhigh'}[p.riskLevel]||'tag-low';
+  const freqClass={LOW:'freq-low',MODERATE:'freq-mod',HIGH:'freq-high','VERY HIGH':'freq-veryhigh'}[p.riskLevel]||'freq-low';
+  const cityDisplay=st.currentCity||p.city||'';
+  const riskGaugeSVG=`<svg id="hpRiskGaugeSvg" width="220" height="130" viewBox="0 0 220 130">
+    <defs><linearGradient id="hpGG" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#28a745"/><stop offset="50%" style="stop-color:#f2cc8f"/><stop offset="100%" style="stop-color:#c62828"/>
+    </linearGradient></defs>
+    <path d="M 20 110 A 90 90 0 0 1 200 110" fill="none" stroke="#e8e8e8" stroke-width="14" stroke-linecap="round"/>
+    <path d="M 20 110 A 90 90 0 0 1 200 110" fill="none" stroke="url(#hpGG)" stroke-width="14" stroke-linecap="round" opacity="0.2"/>
+    <path id="hpGaugeFill" d="M 20 110 A 90 90 0 0 1 200 110" fill="none" stroke="url(#hpGG)" stroke-width="14" stroke-linecap="round" stroke-dasharray="283" stroke-dashoffset="283" style="transition:stroke-dashoffset 1.6s cubic-bezier(.4,0,.2,1)"/>
+    <text id="hpGaugeScore" x="110" y="95" text-anchor="middle" font-family="Fraunces,serif" font-size="36" font-weight="700" fill="#1a2332">0</text>
+    <text x="110" y="115" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="12" fill="#9a9a9a">out of 100</text>
+  </svg>`;
+  const aiBadge=p.skinAnalysis?.mst?`<div style="display:inline-flex;align-items:center;gap:6px;background:var(--tmc-teal-light);border:1px solid rgba(46,196,182,.3);border-radius:20px;padding:4px 12px;font-size:12px;color:var(--tmc-teal-dark);font-weight:600;margin-top:8px">&#129504; Skin tone detected by AI</div>`:'';
+  return`<div class="hp-screen">
+    <div class="hp-header">
+      <div class="hp-logo"><img src="https://themoleclinic.co.uk/wp-content/uploads/2025/02/MoleClinic-Ver-White2.png" alt="The Mole Clinic" style="height:60px;width:auto;display:block;"><button class="hp-reset-link" onclick="resetProfile()">Reset profile</button></div>
+      <div class="hp-greeting">${getGreeting()}, ${p.name||'there'}</div>
+      <div class="hp-meta">
+        <div class="hp-date">${formatDateLong(new Date())}</div>
+        ${cityDisplay?`<div class="hp-location">&#128205; <span id="hp-city">${cityDisplay}</span></div>`:
+          `<div class="hp-location" id="hp-city-wrap" style="display:none">&#128205; <span id="hp-city"></span></div>`}
+      </div>
+    </div>
+    ${st.showTravelBanner?`<div class="travel-banner animate-in" style="margin:16px 16px 0">
+      <div class="travel-banner-title">Just been away? &#9728;&#65039;</div>
+      <div class="travel-banner-body">Time to book your post-holiday skin check. Sun exposure abroad is one of the biggest risk factors for skin cancer.</div>
+      <div class="travel-banner-actions">
+        <button class="travel-banner-book" onclick="window.open('https://www.themoleclinic.co.uk/book','_blank')">Book a Mole Check &#8594;</button>
+        <button class="travel-banner-dismiss" onclick="dismissTravelBanner()">Remind me later</button>
+      </div></div>`:''}
+    <div class="hp-content">
+      <div class="hp-section-label">Today's Skin Safety</div>
+      <div class="uv-card">${buildUVCardHtml(wd,p,hour)}</div>
+      <div style="margin-top:16px">
+        <div class="collapsible-header" onclick="toggleProfile()">
+          <div class="collapsible-title">&#129505; Your Risk Profile</div>
+          <div class="collapsible-chevron ${st.profileExpanded?'open':''}" id="profileChevron">&#9660;</div>
+        </div>
+        <div class="collapsible-body ${st.profileExpanded?'open':''}" id="profileCollapse">
+          <div class="collapsible-inner">
+            <div class="card" style="margin-bottom:12px">
+              <div class="hp-gauge-wrap">${riskGaugeSVG}</div>
+              <div style="text-align:center;margin-top:6px"><span class="tag ${riskTagClass}" style="font-size:14px;padding:6px 18px">${p.riskLevel} Risk</span></div>
+              <p style="font-size:13px;color:var(--tmc-gray-600);line-height:1.55;margin-top:12px;padding:0 4px">${summary}</p>
+            </div>
+            <div class="card" style="margin-bottom:12px">
+              <div class="hp-profile-row"><span class="hp-profile-label">Skin tone</span><span class="hp-profile-value">${skinTone?`<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:${skinTone.color};border:1.5px solid rgba(0,0,0,.15)"></span> Monk Tone ${p.skinType} of 10`:'-'}${p.skinAnalysis?.mst?' &#129504;':''}</span></div>
+              <div class="hp-profile-row"><span class="hp-profile-label">Age range</span><span class="hp-profile-value">${questions[0].options.find(o=>o.value===p.answers.age)?.label||'—'}</span></div>
+              <div class="hp-profile-row" style="border-bottom:none"><span class="hp-profile-label">Risk score</span><span class="hp-profile-value">${p.riskScore}/100</span></div>
+            </div>
+            <p class="label">Key risk factors</p>
+            <div class="card">${factors.map(f=>`<div class="risk-factor-item"><div class="risk-factor-dot"></div><span>${f}</span></div>`).join('')}</div>
+          </div>
+        </div>
+      </div>
+      <div class="hp-section-label" style="margin-top:20px">Recommendations</div>
+      <div class="rec-card">${recs.length?recs.map(r=>`<div class="rec-item"><div class="rec-dot"></div><span>${r}</span></div>`).join(''):'<div class="rec-item"><div class="rec-dot"></div><span>Continue applying SPF daily and book an annual professional skin check.</span></div>'}</div>
+      <div class="hp-section-label" style="margin-top:20px">Book a Check</div>
+      <div class="book-card">
+        <div class="book-card-row"><span class="book-card-label">Your last check</span><span class="book-card-value">${p.lastCheckDate||'Not recorded'}</span></div>
+        <div class="book-card-row"><span class="book-card-label">TMC recommends</span><span class="book-card-value"><span class="freq-badge ${freqClass}">${checkFreq}</span></span></div>
+        <button class="book-btn-hp" onclick="window.open('https://www.themoleclinic.co.uk/book','_blank')">Book at The Mole Clinic &#8594;</button>
+      </div>
+      <div style="margin-top:20px">
+        <div class="collapsible-header" onclick="toggleMethodology()">
+          <div class="collapsible-title">&#128218; Methodology &amp; References</div>
+          <div class="collapsible-chevron" id="methChevron">&#9660;</div>
+        </div>
+        <div class="collapsible-body" id="methCollapse">
+          <div class="methodology-section">
+            <div class="methodology-inner">
+              <div class="ref-item"><strong>Google Monk Skin Tone Scale (MST)</strong>Ellis Monk, Harvard University / Google, 2019. A 10-point scale representing the full range of human skin tones, used here for skin type categorisation and detected automatically via Claude AI camera analysis.</div>
+              <div class="ref-item"><strong>Bataille et al. 2015 — Arm Mole Count (King's College London)</strong>Mole count on the right arm predicts total body mole burden. 7–10 arm moles corresponds to ~50 or more body moles; 11+ arm moles indicates elevated melanoma risk. Used here to map AI-detected arm mole count to body mole estimate, pre-filling the questionnaire.</div>
+              <div class="ref-item"><strong>EADO UV Protection Guidelines</strong>European Association of Dermato-Oncology. Sun protection recommendations stratified by UV Index, implemented as the five-band EADO UV Protection Scale in this app.</div>
+              <div class="ref-item"><strong>NHS Skin Cancer Prevention Guidelines</strong>NHS England. Evidence-based guidance on sun protection, risk factors, and early detection. Informs check frequencies and daily SPF advice throughout this app.</div>
+              <div class="ref-item"><strong>Bias-Corrected Risk Weighting — Gadare et al., MIT (2026)</strong>AI models and risk tools trained predominantly on lighter skin tones systematically underestimate risk for darker tones. Per the Gadare et al. debiasing principle, this app applies corrective adjustments: Monk Tones 1–3 receive a one-level-up SPF recommendation, and Tones 7–10 receive an explicit equality-of-risk note to counter the under-detection bias documented in the literature.</div>
+              <div class="ref-item" style="border-bottom:none"><em>This app is a risk profiling tool and does not constitute medical advice. For clinical assessment, consult a qualified dermatologist. The Mole Clinic recommends regular professional skin checks regardless of risk level.</em></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="hp-footer"><p>v0.3 &middot; <a href="https://themoleclinic.co.uk" target="_blank">The Mole Clinic</a></p></div>
+    </div>
+    ${window.location.search.includes('dev=1')?`<div class="dev-toolbar"><button onclick="devSimulateHolidayReturn()">&#127757; Simulate holiday return</button><button onclick="devResetTravel()">&#128260; Reset travel data</button></div>`:''}
+  </div>`;
+}
+// ===== TOGGLE HELPERS =====
+function toggleProfile(){
+  st.profileExpanded=!st.profileExpanded;
+  const col=document.getElementById('profileCollapse'),chev=document.getElementById('profileChevron');
+  if(col)col.classList.toggle('open',st.profileExpanded);
+  if(chev)chev.classList.toggle('open',st.profileExpanded);
+  if(st.profileExpanded)setTimeout(()=>animateRiskGauge(),150);
+}
+function toggleMethodology(){
+  const col=document.getElementById('methCollapse'),chev=document.getElementById('methChevron');
+  if(col){const open=col.classList.toggle('open');if(chev)chev.classList.toggle('open',open);}
+}
+function animateRiskGauge(){
+  const fill=document.getElementById('hpGaugeFill'),scoreEl=document.getElementById('hpGaugeScore'),profile=st.profile;
+  if(!fill||!scoreEl||!profile)return;
+  const score=profile.riskScore||0;
+  fill.style.strokeDashoffset=283*(1-Math.min(score/100,1));
+  let cur=0;
+  const timer=setInterval(()=>{cur++;scoreEl.textContent=cur;if(cur>=score){clearInterval(timer);scoreEl.textContent=score;}},1600/Math.max(score,1));
+}
+function animateRiskGaugeIfOpen(){if(st.profileExpanded)animateRiskGauge();}
+// ===== ASYNC HOMEPAGE INIT =====
+function updateWeatherUI(wd,geo){
+  const hour=new Date().getHours(),isPeak=hour>=11&&hour<=15;
+  const band=getUVBand(wd.uv),spf=getPersonalisedSPF(wd.uv,st.profile.skinType),showPeak=isPeak&&wd.uv>=3;
+  const loadEl=document.getElementById('hp-uv-loading'),dataEl=document.getElementById('hp-uv-data');
+  if(loadEl)loadEl.style.display='none';if(dataEl)dataEl.style.display='block';
+  const gaugeEl=document.getElementById('hp-uv-gauge');if(gaugeEl)gaugeEl.innerHTML=renderUVGaugeSVG(wd.uv);
+  const valEl=document.getElementById('hp-uv-value');if(valEl)valEl.textContent=Math.round(wd.uv);
+  const lvlEl=document.getElementById('hp-uv-level');
+  if(lvlEl){lvlEl.textContent=band.level;lvlEl.style.background=band.bg;lvlEl.style.color=band.text;lvlEl.style.display='block';}
+  const spfEl=document.getElementById('hp-spf-msg');
+  if(spfEl){const spfAction=spf.spf?(spf.msg.replace(/^SPF [^,]+,\s*/,'')||spf.msg).replace(/^./,c=>c.toUpperCase()):'';spfEl.style.display='block';spfEl.innerHTML=spf.spf?`Based on your current location, the current weather and your skin profile, we recommend <strong>SPF ${spf.spf}</strong> today. ${spfAction}.`:'No sun protection required at current UV levels.';if(spf.note)spfEl.innerHTML+=`<div class="uv-spf-note">${spf.note}</div>`;}
+  const peakEl=document.getElementById('hp-peak-uv');
+  if(peakEl){peakEl.style.display=showPeak?'block':'none';if(showPeak)peakEl.innerHTML='&#9728;&#65039; You are in the peak UV window right now (11:00–15:00)';}
+  const wxEl=document.getElementById('hp-weather-summary');
+  if(wxEl){wxEl.style.display='flex';wxEl.innerHTML=`<span style="font-size:20px">${getWeatherEmoji(wd.weatherCode)}</span><span>${Math.round(wd.temp)}°C · ${getWeatherDesc(wd.weatherCode)}</span>`;}
+  if(geo&&geo.city){
+    st.currentCity=geo.city;
+    const cityEl=document.getElementById('hp-city');if(cityEl)cityEl.textContent=geo.city;
+    const cityWrap=document.getElementById('hp-city-wrap');if(cityWrap)cityWrap.style.display='flex';
+  }
+  st.weatherData=wd;
+}
+async function initHomepageAsync(){
+  const p=st.profile;if(!p)return;
+  if(p.consentLocation){
+    const stale=!p.lat||!p.lon||!p.locationTimestamp||(Date.now()-p.locationTimestamp)>(4*60*60*1000);
+    if(stale){
+      try{
+        const pos=await getCurrentPosition();
+        const{latitude:lat,longitude:lon}=pos.coords;
+        const geo=await reverseGeocode(lat,lon);
+        const up={...st.profile,lat,lon,locationTimestamp:Date.now(),city:geo.city||st.profile.city,country:geo.country||st.profile.country,country_code:geo.country_code||st.profile.country_code,homeCountry:st.profile.homeCountry||(geo.country_code||geo.country)};
+        saveProfile(up);st.profile=up;
+        if(up.consentTravel&&geo.country){
+          logLocationEntry(lat,lon,geo.country,geo.country_code);
+          const ts=checkTravelStatus(up);
+          if(ts.justReturned&&shouldShowTravelBanner()){
+            st.showTravelBanner=true;
+            const up2={...up,awayFromHome:false};saveProfile(up2);st.profile=up2;
+            const banner=document.querySelector('.travel-banner');
+            if(!banner){render();return;}
+          }else if(ts.isAway&&!up.awayFromHome){
+            const up2={...up,awayFromHome:true};saveProfile(up2);st.profile=up2;
+          }
+        }
+        const wd=await fetchWeatherAndUV(lat,lon);
+        if(wd)updateWeatherUI(wd,geo);return;
+      }catch(e){}
+    }
+    if(p.lat&&p.lon){try{const wd=await fetchWeatherAndUV(p.lat,p.lon);if(wd)updateWeatherUI(wd,{city:p.city});}catch(e){}return;}
+  }
+  if(p.lat&&p.lon){try{const wd=await fetchWeatherAndUV(p.lat,p.lon);if(wd)updateWeatherUI(wd,{city:p.city});}catch(e){}return;}
+  if(p.postcode){
+    const coords=await fetchCoordinatesFromPostcode(p.postcode);
+    if(coords){try{const wd=await fetchWeatherAndUV(coords.lat,coords.lon);if(wd){updateWeatherUI(wd,{city:`Based on your postcode (${p.postcode.toUpperCase()})`});return;}}catch(e){}}
+    showPostcodeUVError(p);
+  }
+}
+// ===== PROFILE MANAGEMENT =====
+function buildProfile(){
+  return{
+    version:'0.3',name:st.name,email:st.email,postcode:st.postcode,
+    consentData:st.consentData,consentMarketing:st.consentMarketing,
+    consentLocation:st.consentLocation,consentTravel:st.consentTravel,
+    skinType:st.skinType,skinAnalysis:st.skinAnalysis||null,
+    answers:{...st.answers},abcdeAnswers:{...st.abcdeAnswers},
+    riskScore:st.riskScore,riskLevel:st.riskLevel,
+    lat:st.lat,lon:st.lon,city:st.city,country:st.country,country_code:st.country_code,
+    homeCountry:st.country_code||(st.postcode?'gb':''),locationTimestamp:st.lat?Date.now():null,
+    profileCreated:new Date().toISOString().split('T')[0],lastCheckDate:null,awayFromHome:false,
+  };
+}
+function finishOnboarding(){
+  st.riskScore=calculateRiskScore();st.riskLevel=getRiskLevel(st.riskScore);navigate('loading');
+}
+function startLoadingMessages(){
+  const msgs=['Analysing your risk profile…','Comparing against UK skin cancer risk data…','Identifying your key risk factors…','Calculating personalised UV adjustments…','Preparing your Skin Safety Dashboard…'];
+  let i=0;const msgEl=document.getElementById('loadingMsg');
+  const iv=setInterval(()=>{
+    i++;if(i<msgs.length&&msgEl){msgEl.style.animation='none';msgEl.offsetHeight;msgEl.style.animation='fadeIn .4s ease-out';msgEl.textContent=msgs[i];}
+    if(i>=msgs.length-1){clearInterval(iv);setTimeout(()=>{const p=buildProfile();saveProfile(p);st.profile=p;navigate('homepage');},900);}
+  },900);
+}
+function dismissTravelBanner(){setTravelDismissed();st.showTravelBanner=false;const b=document.querySelector('.travel-banner');if(b)b.remove();}
+function showPostcodeUVError(p){
+  const loadEl=document.getElementById('hp-uv-loading'),dataEl=document.getElementById('hp-uv-data');
+  if(loadEl)loadEl.style.display='none';
+  if(dataEl){dataEl.style.display='block';dataEl.innerHTML=`<div class="uv-unavailable"><div class="uv-unavailable-icon">&#9888;&#65039;</div><div style="font-size:14px;font-weight:600;color:var(--tmc-navy)">UV data unavailable</div><div style="margin-top:4px;font-size:12px">Enable location or check postcodes.io is available.</div><button class="btn-secondary" style="margin-top:12px;font-size:13px;padding:10px" onclick="retryPostcodeUV()">Retry &#8634;</button></div><div class="uv-spf-rec" style="margin-top:12px">${getDefaultSPFRec(p.skinType)}</div>`;}
+}
+async function retryPostcodeUV(){
+  const p=st.profile;if(!p||!p.postcode)return;
+  const loadEl=document.getElementById('hp-uv-loading'),dataEl=document.getElementById('hp-uv-data');
+  if(loadEl){loadEl.style.display='block';loadEl.className='uv-loading-state';loadEl.innerHTML=`<div class="uv-loading-spinner"></div><div style="font-size:13px;color:var(--tmc-gray-400)">Retrying…</div><div class="uv-spf-rec" style="margin-top:12px">${getDefaultSPFRec(p.skinType)}</div>`;}
+  if(dataEl)dataEl.style.display='none';
+  const coords=await fetchCoordinatesFromPostcode(p.postcode);
+  if(coords){try{const wd=await fetchWeatherAndUV(coords.lat,coords.lon);if(wd){updateWeatherUI(wd,{city:`Based on your postcode (${p.postcode.toUpperCase()})`});return;}}catch(e){}}
+  showPostcodeUVError(p);
+}
+function resetProfile(){if(confirm('This will clear your profile and restart the questionnaire. Are you sure?')){clearProfile();stopCamera();Object.assign(st,{profile:null,screen:'welcome',history:['welcome'],weatherData:null,currentCity:'',skinAnalysis:null,capturedPhoto:null,cameraStream:null,cameraAnimFrame:null});render();}}
+function afterLocationConsent(){if(st.consentLocation)navigate('consent_travel');else navigate('consent_notifications');}
+// ===== MAIN RENDER =====
+function render(){
+  const app=document.getElementById('app');
+  const dirClass=st.navDirection==='back'?'screen-slide-left':'screen-slide-right';
+  let html='';
+  switch(st.screen){
+    case 'welcome':html=renderWelcome();break;
+    case 'email':html=renderEmail();break;
+    case 'consent':html=renderConsent();break;
+    case 'arm_camera':html=renderArmCamera();break;
+    case 'questionnaire':html=renderQuestionnaire();break;
+    case 'abcde':html=renderABCDE();break;
+    case 'consent_location':html=renderConsentLocation();break;
+    case 'consent_travel':html=renderConsentTravel();break;
+    case 'consent_notifications':html=renderConsentNotifications();break;
+    case 'loading':html=renderLoading();break;
+    case 'homepage':html=renderHomepage();break;
+    default:html=renderWelcome();
+  }
+  app.innerHTML=`<div class="${dirClass}">${html}</div>`;
+  bindEvents();
+  if(st.screen==='loading')startLoadingMessages();
+  if(st.screen==='homepage')setTimeout(()=>{animateRiskGaugeIfOpen();initHomepageAsync();},100);
+}
+// ===== EVENT BINDING =====
+function bindEvents(){
+  // Email screen
+  const nameIn=document.getElementById('nameInput'),emailIn=document.getElementById('emailInput'),postIn=document.getElementById('postcodeInput'),emailNext=document.getElementById('emailNext');
+  if(nameIn&&emailIn&&postIn&&emailNext){
+    const chk=()=>{st.name=nameIn.value.trim();st.email=emailIn.value.trim();st.postcode=postIn.value.trim();emailNext.disabled=!(st.name&&st.email.includes('@')&&st.email.includes('.')&&st.postcode.length>=2);};
+    nameIn.addEventListener('input',chk);emailIn.addEventListener('input',chk);postIn.addEventListener('input',chk);
+    emailNext.addEventListener('click',()=>navigate('consent'));chk();
+  }
+  // Consent screen
+  const consentDataEl=document.getElementById('consentData'),consentMktEl=document.getElementById('consentMarketing'),consentNext=document.getElementById('consentNext');
+  if(consentDataEl)consentDataEl.addEventListener('click',()=>{st.consentData=!st.consentData;render();});
+  if(consentMktEl)consentMktEl.addEventListener('click',()=>{st.consentMarketing=!st.consentMarketing;render();});
+  if(consentNext)consentNext.addEventListener('click',()=>navigate('arm_camera'));
+  // Arm camera screen
+  const camApiKey=document.getElementById('camApiKeyInput');
+  if(camApiKey){
+    camApiKey.addEventListener('input',()=>{const k=camApiKey.value.trim();st.armApiKey=k;if(k)localStorage.setItem('tmcApiKey',k);});
+  }
+  const camStartBtn=document.getElementById('camStartBtn');
+  if(camStartBtn){
+    camStartBtn.addEventListener('click',()=>{
+      const k=document.getElementById('camApiKeyInput')?.value.trim()||'';
+      if(k){st.armApiKey=k;localStorage.setItem('tmcApiKey',k);}
+      startCamera();
+    });
+  }
+  const camCaptureBtn=document.getElementById('camCaptureBtn');
+  if(camCaptureBtn)camCaptureBtn.addEventListener('click',capturePhoto);
+  // Questionnaire screen
+  document.querySelectorAll('.option-card[data-answer]').forEach(c=>c.addEventListener('click',()=>{st.answers[questions[st.currentQuestion].id]=c.dataset.answer;render();}));
+  const questionNext=document.getElementById('questionNext');
+  if(questionNext)questionNext.addEventListener('click',()=>{
+    let next=st.currentQuestion+1;
+    while(next<questions.length&&shouldSkipQuestion(questions[next]))next++;
+    if(next<questions.length){st.currentQuestion=next;render();}else navigate('abcde');
+  });
+  // ABCDE screen
+  document.querySelectorAll('[data-abcde]').forEach(c=>c.addEventListener('click',()=>{st.abcdeAnswers[c.dataset.abcde]=!st.abcdeAnswers[c.dataset.abcde];render();}));
+  // Location consent toggle
+  const locToggle=document.getElementById('locationToggle');
+  if(locToggle){
+    locToggle.addEventListener('change',async()=>{
+      if(locToggle.checked){
+        try{
+          const pos=await getCurrentPosition();
+          st.consentLocation=true;st.lat=pos.coords.latitude;st.lon=pos.coords.longitude;
+          const geo=await reverseGeocode(st.lat,st.lon);st.city=geo.city;st.country=geo.country;st.country_code=geo.country_code;
+          render();
+        }catch(e){locToggle.checked=false;st.consentLocation=false;showToast('Location permission denied');}
+      }else{st.consentLocation=false;st.lat=null;st.lon=null;render();}
+    });
+  }
+  // Travel consent toggle
+  const travToggle=document.getElementById('travelToggle');
+  if(travToggle)travToggle.addEventListener('change',()=>{st.consentTravel=travToggle.checked;});
+}
+// ===== DEV TOOLS =====
+function devSimulateHolidayReturn(){
+  const p=st.profile;if(!p)return;
+  const now=Date.now();let h=getLocationHistory();
+  for(let i=0;i<5;i++)h.push({lat:41.385064,lon:2.173403,country:'Spain',country_code:'es',timestamp:now-(6-i)*24*60*60*1000});
+  h.push({lat:51.46,lon:-0.306,country:'United Kingdom',country_code:'gb',timestamp:now});
+  if(h.length>90)h=h.slice(-90);saveLocationHistory(h);
+  const up={...p,awayFromHome:true,homeCountry:p.homeCountry||'gb'};saveProfile(up);st.profile=up;
+  const ts=checkTravelStatus(up);
+  if(ts.justReturned&&shouldShowTravelBanner()){
+    const up2={...up,awayFromHome:false};saveProfile(up2);st.profile=up2;st.showTravelBanner=true;render();
+  }else{showToast('Travel state: away='+ts.isAway+', returned='+ts.justReturned);}
+}
+function devResetTravel(){
+  localStorage.removeItem('tmcLocationHistory');localStorage.removeItem('tmcTravelBannerDismissed');
+  const p=st.profile;if(p){const up={...p,awayFromHome:false};saveProfile(up);st.profile=up;}
+  st.showTravelBanner=false;const b=document.querySelector('.travel-banner');if(b)b.remove();showToast('Travel data reset');
+}
+// ===== INIT =====
+function init(){
+  const p=getProfile();
+  if(p&&p.version==='0.3'){
+    st.profile=p;st.screen='homepage';st.history=['homepage'];
+    if(p.awayFromHome&&shouldShowTravelBanner())st.showTravelBanner=true;
+    render();
+  }else{
+    render();
+  }
+}
+init();
+</script>
+</body>
+</html>
+
+
