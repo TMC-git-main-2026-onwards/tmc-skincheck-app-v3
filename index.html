@@ -566,7 +566,7 @@ function formatDateLong(d){return d.toLocaleDateString('en-GB',{weekday:'long',d
 const st={
   screen:'welcome',navDirection:'forward',history:['welcome'],
   name:'',email:'',postcode:'',consentData:false,consentMarketing:false,
-  skinType:null,skinAnalysis:null,capturedPhoto:null,armApiKey:'',
+  skinType:null,skinAnalysis:null,capturedPhoto:null,
   cameraStream:null,cameraAnimFrame:null,
   answers:{},currentQuestion:0,abcdeAnswers:{},
   consentLocation:false,consentTravel:false,lat:null,lon:null,city:'',country:'',country_code:'',
@@ -622,8 +622,9 @@ function renderHeader(showBack=true){
   const micro=['questionnaire','arm_camera','abcde'].includes(st.screen);
   const microMsg=['Great start — just a few more questions',"You're halfway there",'Your profile is taking shape','Nearly done — almost ready'][Math.floor(getProgress()/26)%4]||'';
   return`<div class="header">
-    ${showBack?'<button class="header-back" onclick="goBack()">&#8592;</button>':'<div></div>'}
-    <div><img src="https://themoleclinic.co.uk/wp-content/uploads/2025/02/MoleClinic-Ver-White2.png" alt="The Mole Clinic" style="height:32px;width:auto;display:block;"></div><div style="width:44px"></div>
+    ${showBack?'<button class="header-back" onclick="goBack()">&#8592;</button>':'<div style="width:44px"></div>'}
+    <div style="flex:1;text-align:center"><img src="https://themoleclinic.co.uk/wp-content/uploads/2025/02/MoleClinic-Ver-White2.png" alt="The Mole Clinic" style="height:32px;width:auto;"></div>
+    <div style="width:44px"></div>
   </div>
   <div class="progress-bar"><div class="progress-fill" style="width:${getProgress()}%"></div></div>
   <div class="progress-label">${getProgressLabel()}</div>
@@ -647,8 +648,7 @@ async function startCamera(){
   if(!video||!canvas){showCameraState('A');return;}
   try{
     let stream;
-    try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});}
-    catch(e){stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});}
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920,min:640},height:{ideal:1080,min:480},aspectRatio:{ideal:16/9}},audio:false});
     st.cameraStream=stream;
     video.srcObject=stream;
     await new Promise(res=>{video.onloadedmetadata=res;});
@@ -666,13 +666,26 @@ function startOverlay(video,canvas){
     canvas.width=vw;canvas.height=vh;
     const ctx=canvas.getContext('2d');
     ctx.clearRect(0,0,vw,vh);
-    // Draw dashed arm-guide oval (horizontal ellipse in centre of frame)
     const cx=vw/2,cy=vh/2,rx=vw*0.37,ry=vh*0.22;
+    ctx.save();
+    ctx.fillStyle='rgba(0,0,0,0.45)';
+    ctx.fillRect(0,0,vw,vh);
+    ctx.globalCompositeOperation='destination-out';
+    ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);ctx.fill();
+    ctx.restore();
     ctx.strokeStyle='rgba(46,196,182,0.88)';
     ctx.lineWidth=Math.max(2.5,vw*0.007);
     ctx.setLineDash([14,7]);
     ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);ctx.stroke();
     ctx.setLineDash([]);
+    const fs=Math.max(11,Math.round(vw*0.03));
+    ctx.font=`bold ${fs}px DM Sans,sans-serif`;
+    ctx.fillStyle='rgba(255,255,255,0.92)';
+    ctx.textAlign='right';ctx.fillText('WRIST',cx-rx-6,cy+5);
+    ctx.textAlign='left';ctx.fillText('ELBOW',cx+rx+6,cy+5);
+    const pulse=0.75+0.25*Math.abs(Math.sin(Date.now()/500));
+    ctx.beginPath();ctx.arc(cx,cy,Math.max(5,vw*0.012)*pulse,0,Math.PI*2);
+    ctx.fillStyle='rgba(46,196,182,0.85)';ctx.fill();
     st.cameraAnimFrame=requestAnimationFrame(draw);
   }
   draw();
@@ -693,15 +706,12 @@ function capturePhoto(){
 }
 // Calls Anthropic Vision API (claude-sonnet-4-6) directly from browser
 async function analyseArmPhoto(dataUrl){
-  const apiKey=localStorage.getItem('tmcApiKey')||st.armApiKey||'';
-  if(!apiKey)throw new Error('No API key provided');
   const base64=dataUrl.split(',')[1];
   const mediaType=dataUrl.split(';')[0].split(':')[1]||'image/jpeg';
   const res=await fetch('https://api.anthropic.com/v1/messages',{
     method:'POST',
     headers:{
       'Content-Type':'application/json',
-      'Authorization':`Bearer ${apiKey}`,
       'anthropic-version':'2023-06-01',
       'anthropic-dangerous-direct-browser-access':'true',
     },
@@ -854,17 +864,11 @@ function renderConsent(){
   </div>`;
 }
 function renderArmCamera(){
-  const savedKey=localStorage.getItem('tmcApiKey')||'';
   return`<div class="screen">
     ${renderHeader()}
     <div id="cam-state-a" class="content animate-in">
       <h2 class="title-lg">&#129504; Arm Skin Analysis</h2>
       <p class="subtitle">We'll use your camera and Claude AI to detect your Monk skin tone and count visible moles on your arm — automatically filling in part of your profile.</p>
-      <div class="card" style="margin-top:20px">
-        <label class="input-label">Anthropic API Key</label>
-        <input class="input-field" type="password" id="camApiKeyInput" placeholder="sk-ant-api03-..." value="${savedKey}" autocomplete="off" style="margin-top:4px">
-        <p class="cam-api-note">Required for AI analysis. Stored locally on this device only. <a href="https://console.anthropic.com" target="_blank" style="color:var(--tmc-teal)">Get a key &#8594;</a></p>
-      </div>
       <div class="photo-tips-list">
         <div class="photo-tip-row"><div class="photo-tip-emoji">&#9728;&#65039;</div><div class="photo-tip-body"><strong>Good, even lighting</strong>Natural daylight or a bright room. Avoid shadows.</div></div>
         <div class="photo-tip-row"><div class="photo-tip-emoji">&#128170;</div><div class="photo-tip-body"><strong>Extend your forearm</strong>Hold your arm flat, palm up. Roll up your sleeve to the elbow.</div></div>
@@ -1329,18 +1333,8 @@ function bindEvents(){
   if(consentMktEl)consentMktEl.addEventListener('click',()=>{st.consentMarketing=!st.consentMarketing;render();});
   if(consentNext)consentNext.addEventListener('click',()=>navigate('arm_camera'));
   // Arm camera screen
-  const camApiKey=document.getElementById('camApiKeyInput');
-  if(camApiKey){
-    camApiKey.addEventListener('input',()=>{const k=camApiKey.value.trim();st.armApiKey=k;if(k)localStorage.setItem('tmcApiKey',k);});
-  }
   const camStartBtn=document.getElementById('camStartBtn');
-  if(camStartBtn){
-    camStartBtn.addEventListener('click',()=>{
-      const k=document.getElementById('camApiKeyInput')?.value.trim()||'';
-      if(k){st.armApiKey=k;localStorage.setItem('tmcApiKey',k);}
-      startCamera();
-    });
-  }
+  if(camStartBtn)camStartBtn.addEventListener('click',startCamera);
   const camCaptureBtn=document.getElementById('camCaptureBtn');
   if(camCaptureBtn)camCaptureBtn.addEventListener('click',capturePhoto);
   // Questionnaire screen
@@ -1375,7 +1369,7 @@ function bindEvents(){
 function devSimulateHolidayReturn(){
   const p=st.profile;if(!p)return;
   const now=Date.now();let h=getLocationHistory();
-  for(let i=0;i<5;i++)h.push({lat:41.385064,lon:2.173403,country:'Spain',country_code:'es',timestamp:now-(6-i)*24*60*60*1000});
+  for(let i=0;i<5;i++)h.push({lat:40.416775,lon:-3.703790,country:'Spain',country_code:'es',timestamp:now-(6-i)*24*60*60*1000});
   h.push({lat:51.46,lon:-0.306,country:'United Kingdom',country_code:'gb',timestamp:now});
   if(h.length>90)h=h.slice(-90);saveLocationHistory(h);
   const up={...p,awayFromHome:true,homeCountry:p.homeCountry||'gb'};saveProfile(up);st.profile=up;
