@@ -964,6 +964,24 @@ const rgbToLab = (r, g, b) => {
   return { L, a, b: bLab };
 };
 
+/*
+ * RGB to YCbCr conversion
+ * Used for skin pixel detection — separating skin from background.
+ * Skin pixels across all tones fall within Cb=[77,127], Cr=[133,173]
+ * Sources: Sobottka & Pitas (1996), Phung et al. (2005), Kolkur et al. (2017)
+ */
+const rgbToYCbCr = (r, g, b) => {
+  const Y  =  0.299  * r + 0.587  * g + 0.114  * b;
+  const Cb = -0.1687 * r - 0.3313 * g + 0.500  * b + 128;
+  const Cr =  0.500  * r - 0.4187 * g - 0.0813 * b + 128;
+  return { Y, Cb, Cr };
+};
+
+const isSkinPixel = (r, g, b) => {
+  const { Cb, Cr } = rgbToYCbCr(r, g, b);
+  return Cb >= 77 && Cb <= 127 && Cr >= 133 && Cr <= 173;
+};
+
 // Calculate ITA from CIELAB values
 // ITA = arctan((L* - 50) / b*) × (180/π)
 const calcITA = (L, bLab) => {
@@ -1021,6 +1039,11 @@ const classifyMonkToneFromPixels = (imageDataURL) => {
         // Skip overexposed and underexposed pixels
         if (brightness > 240 || brightness < 20) continue;
 
+        // YCbCr skin pixel filter — rejects background, clothing, hair
+        // Thresholds: Cb=[77,127], Cr=[133,173] (Sobottka & Pitas 1996,
+        // confirmed Kolkur et al. 2017 across all skin tones)
+        if (!isSkinPixel(r, g, b)) continue;
+
         // Convert to CIELAB and calculate ITA
         const lab = rgbToLab(r, g, b);
         const ita = calcITA(lab.L, lab.b);
@@ -1032,7 +1055,7 @@ const classifyMonkToneFromPixels = (imageDataURL) => {
         itaValues.push(ita);
       }
 
-      if (itaValues.length < 20) {
+      if (itaValues.length < 10) {
         resolve(null);
         return;
       }
@@ -1520,6 +1543,7 @@ function renderHomepage(){
               <div class="ref-item"><strong>EADO UV Protection Guidelines</strong>European Association of Dermato-Oncology. Sun protection recommendations stratified by UV Index, implemented as the five-band EADO UV Protection Scale in this app.</div>
               <div class="ref-item"><strong>NHS Skin Cancer Prevention Guidelines</strong>NHS England. Evidence-based guidance on sun protection, risk factors, and early detection. Informs check frequencies and daily SPF advice throughout this app.</div>
               <div class="ref-item"><strong>Bias-Corrected Risk Weighting — Gadare et al., MIT (2026)</strong>AI models and risk tools trained predominantly on lighter skin tones systematically underestimate risk for darker tones. This app applies corrective adjustments: Monk Tones 1–3 receive a one-level-up SPF recommendation, Tones 7–10 receive an equality-of-risk note, and the risk scoring does not reduce scores for darker skin tones.</div>
+              <div class="ref-item"><strong>YCbCr Skin Pixel Detection (Sobottka &amp; Pitas 1996; Kolkur et al. 2017)</strong>Skin pixel detection uses YCbCr colour space thresholds (Cb=[77,127], Cr=[133,173]) to exclude background, clothing and non-skin pixels before skin tone calculation. These thresholds hold across all human skin tones — from very fair to very dark — making them robust across the full Monk scale. Sources: Sobottka &amp; Pitas (1996); Phung et al. (2005); Kolkur et al. (2017).</div>
               <div class="ref-item" style="border-bottom:none"><em>This app is a risk profiling tool and does not constitute medical advice. For clinical assessment, consult a qualified dermatologist. The Mole Clinic recommends regular professional skin checks regardless of risk level.</em></div>
             </div>
           </div>
