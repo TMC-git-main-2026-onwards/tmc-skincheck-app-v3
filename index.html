@@ -899,6 +899,7 @@ function retakePhoto(){
   if(window.activeCameraStream){window.activeCameraStream.getTracks().forEach(t=>t.stop());window.activeCameraStream=null;}
   showCameraState('A');
 }
+// MONK_TONES used only as reference — ITA method now primary classifier
 const MONK_TONES = [
   { tone: 1,  r: 224, g: 199, b: 187 },
   { tone: 2,  r: 231, g: 206, b: 186 },
@@ -911,6 +912,83 @@ const MONK_TONES = [
   { tone: 9,  r: 56,  g: 42,  b: 36  },
   { tone: 10, r: 47,  g: 39,  b: 34  }
 ];
+
+/*
+ * ITA-BASED MONK SKIN TONE CLASSIFICATION
+ *
+ * Uses the Individual Typology Angle (ITA) in CIELAB colour space.
+ * ITA = arctan((L* - 50) / b*) × 180/π
+ *
+ * More robust to lighting variation than RGB Euclidean distance because:
+ * - CIELAB separates lightness (L*) from colour information (a*, b*)
+ * - The L*/b* ratio in ITA is more stable under illuminant changes than RGB
+ * - Perceptually uniform colour space designed for this purpose
+ *
+ * Sources:
+ * - Chardon et al. (1991). Int J Cosmetic Science, 13(4), 191-208.
+ * - Ulrich et al. (2025). Nature npj Digital Medicine. PMC12179258.
+ * - Jung et al. (2024). Skin Tone Map Generation. PMC11452249.
+ * - Lipnick et al. (2026). British Journal of Dermatology, 194(1), e31.
+ * - Monk, E. (2019). Monk Skin Tone Scale. Harvard/Google.
+ */
+
+// Convert sRGB (0-255) to CIELAB
+// Uses D65 illuminant (standard daylight reference)
+const rgbToLab = (r, g, b) => {
+  // Step 1: sRGB to linear RGB (gamma correction)
+  const linearise = (v) => {
+    v = v / 255;
+    return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  };
+  const lr = linearise(r);
+  const lg = linearise(g);
+  const lb = linearise(b);
+
+  // Step 2: Linear RGB to XYZ (D65 illuminant matrix)
+  const X = lr * 0.4124564 + lg * 0.3575761 + lb * 0.1804375;
+  const Y = lr * 0.2126729 + lg * 0.7151522 + lb * 0.0721750;
+  const Z = lr * 0.0193339 + lg * 0.1191920 + lb * 0.9503041;
+
+  // Step 3: XYZ to CIELAB (D65 white point)
+  const Xn = 0.95047, Yn = 1.00000, Zn = 1.08883;
+  const f = (t) => t > 0.008856 ?
+    Math.pow(t, 1/3) : (7.787 * t) + (16/116);
+  const fx = f(X / Xn);
+  const fy = f(Y / Yn);
+  const fz = f(Z / Zn);
+
+  const L = (116 * fy) - 16;
+  const a = 500 * (fx - fy);
+  const bLab = 200 * (fy - fz);
+
+  return { L, a, b: bLab };
+};
+
+// Calculate ITA from CIELAB values
+// ITA = arctan((L* - 50) / b*) × (180/π)
+const calcITA = (L, bLab) => {
+  if (Math.abs(bLab) < 0.001) bLab = 0.001; // avoid division by zero
+  return Math.atan2(L - 50, bLab) * (180 / Math.PI);
+};
+
+// Map ITA angle to Monk Skin Tone (1-10)
+// Thresholds from Chardon 1991 extended to 10-point Monk scale
+const itaToMonk = (ita) => {
+  if (ita > 55)  return 1;   // Very light
+  if (ita > 48)  return 2;   // Light
+  if (ita > 38)  return 3;   // Light-medium
+  if (ita > 28)  return 4;   // Medium
+  if (ita > 18)  return 4;   // Medium (upper)
+  if (ita > 10)  return 5;   // Medium-tan
+  if (ita > 0)   return 5;   // Tan
+  if (ita > -10) return 6;   // Tan-brown
+  if (ita > -20) return 6;   // Brown
+  if (ita > -30) return 7;   // Deep brown
+  if (ita > -42) return 8;   // Very deep brown
+  if (ita > -55) return 9;   // Near-black brown
+  return 10;                  // Deepest
+};
+
 const classifyMonkToneFromPixels = (imageDataURL) => {
   return new Promise((resolve) => {
     const img = new Image();
@@ -923,7 +1001,7 @@ const classifyMonkToneFromPixels = (imageDataURL) => {
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0);
 
-      // Sample centre 50%×50% of image — inner forearm region
+      // Sample centre region — inner forearm
       const x1 = Math.round(W * 0.25);
       const y1 = Math.round(H * 0.25);
       const sw = Math.round(W * 0.50);
@@ -931,66 +1009,45 @@ const classifyMonkToneFromPixels = (imageDataURL) => {
       const imageData = ctx.getImageData(x1, y1, sw, sh);
       const pixels = imageData.data;
 
-      // Collect all valid pixel RGB values (no skin filter — avoids
-      // rejecting fair-skin pixels that fail heuristic channel checks)
-      const validR = [], validG = [], validB = [];
+      // Collect ITA values for each valid pixel
+      const itaValues = [];
+
       for (let i = 0; i < pixels.length; i += 8) {
-        const r = pixels[i], g = pixels[i+1], b = pixels[i+2];
+        const r = pixels[i];
+        const g = pixels[i+1];
+        const b = pixels[i+2];
         const brightness = (r + g + b) / 3;
-        // Only skip clearly overexposed or underexposed pixels
-        if (brightness > 245 || brightness < 15) continue;
-        validR.push(r); validG.push(g); validB.push(b);
+
+        // Skip overexposed and underexposed pixels
+        if (brightness > 240 || brightness < 20) continue;
+
+        // Convert to CIELAB and calculate ITA
+        const lab = rgbToLab(r, g, b);
+        const ita = calcITA(lab.L, lab.b);
+
+        // ITA for skin ranges roughly from -90 to +90
+        // Filter extreme values that are likely non-skin pixels
+        if (ita < -80 || ita > 80) continue;
+
+        itaValues.push(ita);
       }
 
-      if (validR.length < 20) { resolve(null); return; }
-
-      // Trimmed mean: sort and take middle 60%
-      // Removes overexposed spots and shadow pixels without a pixel filter
-      validR.sort((a,b) => a-b);
-      validG.sort((a,b) => a-b);
-      validB.sort((a,b) => a-b);
-      const trimStart = Math.floor(validR.length * 0.20);
-      const trimEnd   = Math.floor(validR.length * 0.80);
-      let sumR=0, sumG=0, sumB=0;
-      for (let i = trimStart; i < trimEnd; i++) { sumR+=validR[i]; sumG+=validG[i]; sumB+=validB[i]; }
-      const count = trimEnd - trimStart;
-      let avgR = sumR / count;
-      let avgG = sumG / count;
-      let avgB = sumB / count;
-
-      // Grey world white balance — capped at ±25% to avoid overcorrection
-      const grey = (avgR + avgG + avgB) / 3;
-      const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-      const corrR = clamp(avgR * clamp(grey / avgR, 0.75, 1.25), 0, 255);
-      const corrG = clamp(avgG * clamp(grey / avgG, 0.75, 1.25), 0, 255);
-      const corrB = clamp(avgB * clamp(grey / avgB, 0.75, 1.25), 0, 255);
-
-      // Nearest MST by Euclidean distance
-      let nearest = 1, minDist = Infinity;
-      for (const mst of MONK_TONES) {
-        const dist = Math.sqrt(
-          Math.pow(corrR - mst.r, 2) +
-          Math.pow(corrG - mst.g, 2) +
-          Math.pow(corrB - mst.b, 2)
-        );
-        if (dist < minDist) { minDist = dist; nearest = mst.tone; }
+      if (itaValues.length < 20) {
+        resolve(null);
+        return;
       }
 
-      // Brightness sanity caps using RAW (pre-correction) average.
-      // Raw brightness is lighting-independent: a bright raw value
-      // means objectively light skin regardless of colour cast.
-      const rawBrightness = (avgR + avgG + avgB) / 3;
-      if (rawBrightness > 195 && nearest > 2) nearest = Math.min(nearest, 2);
-      if (rawBrightness > 175 && nearest > 3) nearest = Math.min(nearest, 3);
-      if (rawBrightness > 148 && nearest > 3) nearest = Math.min(nearest, 3);
-      if (rawBrightness > 120 && nearest > 4) nearest = Math.min(nearest, 4);
-      if (rawBrightness > 100 && nearest > 5) nearest = Math.min(nearest, 5);
-      if (rawBrightness > 80  && nearest > 6) nearest = Math.min(nearest, 6);
-      if (rawBrightness < 65  && nearest < 7) nearest = Math.max(nearest, 7);
-      if (rawBrightness < 45  && nearest < 8) nearest = Math.max(nearest, 8);
-      if (rawBrightness < 30  && nearest < 9) nearest = Math.max(nearest, 9);
+      // Sort and take trimmed mean (middle 60%)
+      // Removes outliers from clothing/background
+      itaValues.sort((a, b) => a - b);
+      const trimStart = Math.floor(itaValues.length * 0.20);
+      const trimEnd   = Math.floor(itaValues.length * 0.80);
+      let sum = 0;
+      for (let i = trimStart; i < trimEnd; i++) sum += itaValues[i];
+      const medianITA = sum / (trimEnd - trimStart);
 
-      resolve(nearest);
+      const monk = itaToMonk(medianITA);
+      resolve(monk);
     };
     img.onerror = () => resolve(null);
     img.src = imageDataURL;
