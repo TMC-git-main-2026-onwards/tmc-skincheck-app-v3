@@ -982,9 +982,10 @@ const classifyMonkToneFromPixels = (imageDataURL) => {
       const rawBrightness = (avgR + avgG + avgB) / 3;
       if (rawBrightness > 195 && nearest > 2) nearest = Math.min(nearest, 2);
       if (rawBrightness > 175 && nearest > 3) nearest = Math.min(nearest, 3);
-      if (rawBrightness > 155 && nearest > 4) nearest = Math.min(nearest, 4);
-      if (rawBrightness > 130 && nearest > 5) nearest = Math.min(nearest, 5);
-      if (rawBrightness > 105 && nearest > 6) nearest = Math.min(nearest, 6);
+      if (rawBrightness > 148 && nearest > 3) nearest = Math.min(nearest, 3);
+      if (rawBrightness > 120 && nearest > 4) nearest = Math.min(nearest, 4);
+      if (rawBrightness > 100 && nearest > 5) nearest = Math.min(nearest, 5);
+      if (rawBrightness > 80  && nearest > 6) nearest = Math.min(nearest, 6);
       if (rawBrightness < 65  && nearest < 7) nearest = Math.max(nearest, 7);
       if (rawBrightness < 45  && nearest < 8) nearest = Math.max(nearest, 8);
       if (rawBrightness < 30  && nearest < 9) nearest = Math.max(nearest, 9);
