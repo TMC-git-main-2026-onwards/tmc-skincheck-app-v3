@@ -899,36 +899,17 @@ function retakePhoto(){
   if(window.activeCameraStream){window.activeCameraStream.getTracks().forEach(t=>t.stop());window.activeCameraStream=null;}
   showCameraState('A');
 }
-/*
- * PIXEL-BASED MONK SKIN TONE CLASSIFICATION v2
- *
- * Addresses major sources of error in pixel-based skin tone detection:
- * 1. Warm indoor lighting — shifts RGB warm, making pale skin appear darker
- * 2. Cool lighting (fluorescent/daylight LED) — shifts blue channel up
- * 3. Camera auto-white-balance inconsistency across devices
- * 4. Background/clothing contamination in sample area
- * 5. Overexposed pixels washing out the sample
- * 6. Shadow regions darkening the sample
- *
- * Approach: multi-zone sampling, illuminant estimation (grey-world +
- * specular highlights), Von Kries chromatic adaptation, brightness sanity checks.
- *
- * Sources:
- * - Monk, E. (2019). Monk Skin Tone Scale. Harvard/Google.
- * - Finlayson et al. (2004). Illuminant estimation. ECCV.
- * - Von Kries (1902). Chromatic adaptation model.
- */
 const MONK_TONES = [
-  { tone: 1,  r: 224, g: 199, b: 187 }, // #e0c7bb — very light cool-pink
-  { tone: 2,  r: 231, g: 206, b: 186 }, // #e7ceba — light neutral
-  { tone: 3,  r: 228, g: 202, b: 166 }, // #e4caa6 — light-medium warm/olive
-  { tone: 4,  r: 201, g: 171, b: 137 }, // #c9ab89 — medium warm
-  { tone: 5,  r: 161, g: 128, b: 91  }, // #a1805b — medium-deep warm-golden
-  { tone: 6,  r: 129, g: 93,  b: 58  }, // #815d3a — deep warm-brown
-  { tone: 7,  r: 113, g: 74,  b: 53  }, // #714a35 — deep reddish-brown
-  { tone: 8,  r: 85,  g: 55,  b: 43  }, // #55372b — very deep brown
-  { tone: 9,  r: 56,  g: 42,  b: 36  }, // #382a24 — very deep near-black
-  { tone: 10, r: 47,  g: 39,  b: 34  }  // #2f2722 — deepest brown-black
+  { tone: 1,  r: 224, g: 199, b: 187 },
+  { tone: 2,  r: 231, g: 206, b: 186 },
+  { tone: 3,  r: 228, g: 202, b: 166 },
+  { tone: 4,  r: 201, g: 171, b: 137 },
+  { tone: 5,  r: 161, g: 128, b: 91  },
+  { tone: 6,  r: 129, g: 93,  b: 58  },
+  { tone: 7,  r: 113, g: 74,  b: 53  },
+  { tone: 8,  r: 85,  g: 55,  b: 43  },
+  { tone: 9,  r: 56,  g: 42,  b: 36  },
+  { tone: 10, r: 47,  g: 39,  b: 34  }
 ];
 const classifyMonkToneFromPixels = (imageDataURL) => {
   return new Promise((resolve) => {
@@ -942,104 +923,71 @@ const classifyMonkToneFromPixels = (imageDataURL) => {
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0);
 
-      // ── STEP 1: MULTI-ZONE SAMPLING ─────────────────────────────────
-      // 3 overlapping vertical strips across the arm centre.
-      // Median-weighted to reduce edge/background noise.
-      const zones = [
-        { x1: W*0.20, x2: W*0.45, y1: H*0.25, y2: H*0.75 },
-        { x1: W*0.35, x2: W*0.65, y1: H*0.25, y2: H*0.75 },
-        { x1: W*0.55, x2: W*0.80, y1: H*0.25, y2: H*0.75 },
-      ];
-      const zoneResults = [];
-      for (const zone of zones) {
-        const x = Math.round(zone.x1), y = Math.round(zone.y1);
-        const w = Math.round(zone.x2 - zone.x1), h = Math.round(zone.y2 - zone.y1);
-        if (w <= 0 || h <= 0) continue;
-        const imageData = ctx.getImageData(x, y, w, h);
-        const pixels = imageData.data;
-        let sumR=0,sumG=0,sumB=0,count=0;
-        let specR=0,specG=0,specB=0,specCount=0;
-        for (let i=0; i<pixels.length; i+=16) {
-          const r=pixels[i],g=pixels[i+1],b=pixels[i+2],a=pixels[i+3];
-          if (a < 200) continue;
-          const brightness = (r+g+b) / 3;
-          // Collect specular highlights for illuminant estimation
-          if (brightness > 220) { specR+=r;specG+=g;specB+=b;specCount++;continue; }
-          if (brightness < 30) continue;
-          // Skin pixel filter: reject over-saturated (clothing) and wrong channel ratios
-          const maxC=Math.max(r,g,b), minC=Math.min(r,g,b);
-          const saturation = maxC===0 ? 0 : (maxC-minC)/maxC;
-          if (saturation > 0.55) continue;
-          if (saturation < 0.04 && brightness > 50) continue;
-          if (brightness > 120 && r < g) continue;
-          if (r < b - 10) continue;
-          sumR+=r;sumG+=g;sumB+=b;count++;
-        }
-        if (count < 10) continue;
-        zoneResults.push({
-          r:sumR/count, g:sumG/count, b:sumB/count, count,
-          specR: specCount>0 ? specR/specCount : null,
-          specG: specCount>0 ? specG/specCount : null,
-          specB: specCount>0 ? specB/specCount : null,
-          specCount
-        });
-      }
-      if (zoneResults.length === 0) { resolve(null); return; }
+      // Sample centre 50%×50% of image — inner forearm region
+      const x1 = Math.round(W * 0.25);
+      const y1 = Math.round(H * 0.25);
+      const sw = Math.round(W * 0.50);
+      const sh = Math.round(H * 0.50);
+      const imageData = ctx.getImageData(x1, y1, sw, sh);
+      const pixels = imageData.data;
 
-      // ── STEP 2: WEIGHTED AVERAGE ACROSS ZONES ───────────────────────
-      let totalWeight=0, weightedR=0, weightedG=0, weightedB=0;
-      let allSpecR=0, allSpecG=0, allSpecB=0, totalSpec=0;
-      for (const z of zoneResults) {
-        weightedR+=z.r*z.count; weightedG+=z.g*z.count; weightedB+=z.b*z.count;
-        totalWeight+=z.count;
-        if (z.specR!==null) { allSpecR+=z.specR*z.specCount; allSpecG+=z.specG*z.specCount; allSpecB+=z.specB*z.specCount; totalSpec+=z.specCount; }
-      }
-      let avgR=weightedR/totalWeight, avgG=weightedG/totalWeight, avgB=weightedB/totalWeight;
-
-      // ── STEP 3: ILLUMINANT ESTIMATION ───────────────────────────────
-      // Grey World: assumes average scene colour should be neutral grey.
-      const gwGrey=(avgR+avgG+avgB)/3;
-      const gwR=gwGrey/Math.max(avgR,1), gwG=gwGrey/Math.max(avgG,1), gwB=gwGrey/Math.max(avgB,1);
-      // Specular highlights: bright highlights approximate light colour directly.
-      let illumR=gwR, illumG=gwG, illumB=gwB;
-      if (totalSpec >= 5) {
-        const sR=allSpecR/totalSpec, sG=allSpecG/totalSpec, sB=allSpecB/totalSpec;
-        const sGrey=(sR+sG+sB)/3;
-        const specScaleR=sGrey/Math.max(sR,1), specScaleG=sGrey/Math.max(sG,1), specScaleB=sGrey/Math.max(sB,1);
-        // Specular is more direct — weight it 65%
-        illumR=gwR*0.35+specScaleR*0.65;
-        illumG=gwG*0.35+specScaleG*0.65;
-        illumB=gwB*0.35+specScaleB*0.65;
+      // Collect all valid pixel RGB values (no skin filter — avoids
+      // rejecting fair-skin pixels that fail heuristic channel checks)
+      const validR = [], validG = [], validB = [];
+      for (let i = 0; i < pixels.length; i += 8) {
+        const r = pixels[i], g = pixels[i+1], b = pixels[i+2];
+        const brightness = (r + g + b) / 3;
+        // Only skip clearly overexposed or underexposed pixels
+        if (brightness > 245 || brightness < 15) continue;
+        validR.push(r); validG.push(g); validB.push(b);
       }
 
-      // ── STEP 4: VON KRIES CHROMATIC ADAPTATION ──────────────────────
-      // Apply illuminant correction, clamped to ±40% to prevent over-correction.
-      const clamp=(v,mn,mx)=>Math.max(mn,Math.min(mx,v));
-      const scaleR=clamp(illumR,0.60,1.40), scaleG=clamp(illumG,0.60,1.40), scaleB=clamp(illumB,0.60,1.40);
-      const corrR=clamp(Math.round(avgR*scaleR),0,255);
-      const corrG=clamp(Math.round(avgG*scaleG),0,255);
-      const corrB=clamp(Math.round(avgB*scaleB),0,255);
+      if (validR.length < 20) { resolve(null); return; }
 
-      // ── STEP 5: MST MATCHING ─────────────────────────────────────────
-      // Euclidean distance in RGB; red channel weighted (most discriminative for skin).
-      let nearest=1, minDist=Infinity;
+      // Trimmed mean: sort and take middle 60%
+      // Removes overexposed spots and shadow pixels without a pixel filter
+      validR.sort((a,b) => a-b);
+      validG.sort((a,b) => a-b);
+      validB.sort((a,b) => a-b);
+      const trimStart = Math.floor(validR.length * 0.20);
+      const trimEnd   = Math.floor(validR.length * 0.80);
+      let sumR=0, sumG=0, sumB=0;
+      for (let i = trimStart; i < trimEnd; i++) { sumR+=validR[i]; sumG+=validG[i]; sumB+=validB[i]; }
+      const count = trimEnd - trimStart;
+      let avgR = sumR / count;
+      let avgG = sumG / count;
+      let avgB = sumB / count;
+
+      // Grey world white balance — capped at ±25% to avoid overcorrection
+      const grey = (avgR + avgG + avgB) / 3;
+      const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+      const corrR = clamp(avgR * clamp(grey / avgR, 0.75, 1.25), 0, 255);
+      const corrG = clamp(avgG * clamp(grey / avgG, 0.75, 1.25), 0, 255);
+      const corrB = clamp(avgB * clamp(grey / avgB, 0.75, 1.25), 0, 255);
+
+      // Nearest MST by Euclidean distance
+      let nearest = 1, minDist = Infinity;
       for (const mst of MONK_TONES) {
-        const dist=Math.sqrt(Math.pow((corrR-mst.r)*1.1,2)+Math.pow(corrG-mst.g,2)+Math.pow(corrB-mst.b,2));
-        if (dist<minDist) { minDist=dist; nearest=mst.tone; }
+        const dist = Math.sqrt(
+          Math.pow(corrR - mst.r, 2) +
+          Math.pow(corrG - mst.g, 2) +
+          Math.pow(corrB - mst.b, 2)
+        );
+        if (dist < minDist) { minDist = dist; nearest = mst.tone; }
       }
 
-      // ── STEP 6: BRIGHTNESS SANITY CHECKS ────────────────────────────
-      // Raw brightness is a lighting-independent reality check.
-      // Very bright raw average = objectively light skin regardless of cast.
-      // Very dark raw average = objectively dark skin — don't over-correct.
-      const rawBrightness=(avgR+avgG+avgB)/3;
-      if (rawBrightness>210 && nearest>2) nearest=Math.min(nearest,2);
-      if (rawBrightness>185 && nearest>3) nearest=Math.min(nearest,3);
-      if (rawBrightness>160 && nearest>4) nearest=Math.min(nearest,4);
-      if (rawBrightness>130 && nearest>6) nearest=Math.min(nearest,6);
-      if (rawBrightness<60  && nearest<7) nearest=Math.max(nearest,7);
-      if (rawBrightness<40  && nearest<8) nearest=Math.max(nearest,8);
-      if (rawBrightness<25  && nearest<9) nearest=Math.max(nearest,9);
+      // Brightness sanity caps using RAW (pre-correction) average.
+      // Raw brightness is lighting-independent: a bright raw value
+      // means objectively light skin regardless of colour cast.
+      const rawBrightness = (avgR + avgG + avgB) / 3;
+      if (rawBrightness > 195 && nearest > 2) nearest = Math.min(nearest, 2);
+      if (rawBrightness > 175 && nearest > 3) nearest = Math.min(nearest, 3);
+      if (rawBrightness > 155 && nearest > 4) nearest = Math.min(nearest, 4);
+      if (rawBrightness > 130 && nearest > 5) nearest = Math.min(nearest, 5);
+      if (rawBrightness > 105 && nearest > 6) nearest = Math.min(nearest, 6);
+      if (rawBrightness < 65  && nearest < 7) nearest = Math.max(nearest, 7);
+      if (rawBrightness < 45  && nearest < 8) nearest = Math.max(nearest, 8);
+      if (rawBrightness < 30  && nearest < 9) nearest = Math.max(nearest, 9);
 
       resolve(nearest);
     };
@@ -1078,12 +1026,11 @@ const analyseArmPhoto = async (imageDataURL) => {
     })()
   ]);
   const worker = workerResult.status === 'fulfilled' ? workerResult.value : null;
-  // Prefer pixel-sampled tone; fall back to worker visual estimate
   const pixelTone = pixelResult.status === 'fulfilled' ? pixelResult.value : null;
-  const monkTone = pixelTone || (worker && worker.monkTone) || 3;
+  const monkTone = pixelTone !== null ? pixelTone : 3;
   return {
     monkTone,
-    monkToneSource: pixelTone ? 'pixel_sampling' : 'ai_visual',
+    monkToneSource: pixelTone !== null ? 'pixel_sampling' : 'default',
     moleCount: worker ? worker.moleCount : -1,
     moleCountCategory: worker ? worker.moleCountCategory : 'under7',
     confidence: worker ? worker.confidence : 'low',
