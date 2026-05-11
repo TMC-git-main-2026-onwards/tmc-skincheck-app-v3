@@ -257,6 +257,31 @@ input:checked+.toggle-slider:before{transform:translateX(24px)}
 .cam-error-box{background:var(--tmc-coral-light);border-radius:var(--radius-md);padding:16px;margin-top:14px}
 .photo-tips-list{display:flex;flex-direction:column;gap:12px;margin-top:16px}
 @media(max-width:380px){.title-xl{font-size:26px}.title-lg{font-size:22px}.hp-greeting{font-size:24px}}
+.option-checkbox{width:22px;height:22px;border-radius:4px;border:2px solid var(--tmc-gray-300);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.option-card.selected .option-checkbox{border-color:var(--tmc-teal);background:var(--tmc-teal)}
+.option-card.selected .option-checkbox::after{content:'✓';color:white;font-size:13px;font-weight:700}
+.section-heading-pill{font-size:10px;font-weight:700;color:var(--tmc-teal-dark);text-transform:uppercase;letter-spacing:.8px;margin:8px 0 14px;padding:8px 12px;background:var(--tmc-teal-light);border-radius:var(--radius-sm);display:block;line-height:1.5}
+.abcde-divider{font-size:11px;font-weight:700;color:var(--tmc-gray-400);text-transform:uppercase;letter-spacing:.8px;margin:14px 0 8px;padding-top:10px;border-top:1px solid var(--tmc-gray-200)}
+.abcde-note{font-size:12px;color:var(--tmc-gray-400);font-style:italic;margin-top:12px;line-height:1.5}
+.svc-rec-wrap{border-radius:var(--radius-lg);padding:20px;margin-bottom:4px;position:relative;overflow:hidden}
+.svc-rec-wrap::before{content:'';position:absolute;top:-40px;right:-40px;width:160px;height:160px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.08) 0%,transparent 70%);pointer-events:none}
+.svc-rec-badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px;position:relative}
+.svc-rec-title{font-family:var(--font-display);font-size:19px;font-weight:600;margin-bottom:8px;position:relative}
+.svc-rec-desc{font-size:13px;line-height:1.6;margin-bottom:16px;position:relative}
+.svc-tile-row{display:flex;gap:8px;margin-bottom:12px;position:relative}
+@media(max-width:380px){.svc-tile-row{flex-direction:column}}
+.svc-tile{flex:1;border-radius:var(--radius-sm);padding:12px;border:1px solid var(--tmc-gray-200);background:white;min-width:0}
+.svc-tile-primary{border:2px solid var(--tmc-teal);background:var(--tmc-teal-light)}
+.svc-tile-name{font-size:12px;font-weight:700;color:var(--tmc-navy);margin-bottom:4px}
+.svc-tile-desc{font-size:11px;color:var(--tmc-gray-600);margin-bottom:8px;line-height:1.4}
+.svc-tile-btn{width:100%;padding:8px;background:var(--tmc-teal);color:white;border:none;border-radius:var(--radius-sm);font-family:var(--font-body);font-size:12px;font-weight:600;cursor:pointer;transition:background .2s}
+.svc-tile-btn:hover{background:var(--tmc-teal-dark)}
+.svc-disclaimer{font-size:11px;color:rgba(255,255,255,.55);line-height:1.4;text-align:center;padding:0 4px;position:relative}
+.svc-disclaimer-light{font-size:11px;color:var(--tmc-gray-400);line-height:1.4;text-align:center;padding:0 4px}
+.book-btn-urgent{width:100%;padding:16px;background:#f59e0b;color:white;font-family:var(--font-display);font-size:17px;font-weight:600;border:none;border-radius:var(--radius-md);cursor:pointer;transition:background .2s;letter-spacing:.2px}
+.book-btn-urgent:hover{background:#d97706}
+.urgent-notice{background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.5);border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;color:#92400e;font-weight:500;margin-bottom:12px}
+.q-intro-screen{background:var(--tmc-navy);flex:1;padding:32px 24px 100px}
 </style>
 </head>
 <body>
@@ -272,59 +297,75 @@ const skinTypes=[
   {id:7,color:'#825c43',fitzpatrickId:5,score:1},{id:8,color:'#604134',fitzpatrickId:5,score:1},
   {id:9,color:'#3a312a',fitzpatrickId:6,score:0},{id:10,color:'#15120e',fitzpatrickId:6,score:0},
 ];
-// Questionnaire — 11 questions, weighted scoring
-// Scoring sourced from NHS skin cancer risk factor literature and EADO guidelines
+// Questionnaire — 14 questions across 5 clinical domains
+// Question set authored by Annie Meharg and Anna Grodent (TMC clinical/compliance)
 const questions=[
   {id:'age',question:'What is your age range?',options:[
-    {value:'under25',label:'Under 25',score:1},{value:'25-34',label:'25–34',score:2},
-    {value:'35-44',label:'35–44',score:3},{value:'45-54',label:'45–54',score:4},
-    {value:'55-64',label:'55–64',score:5},{value:'65plus',label:'65+',score:6}]},
-  {id:'family_history',question:'Has anyone in your family been diagnosed with skin cancer?',subtitle:'Including melanoma or non-melanoma skin cancers',options:[
-    {value:'yes_immediate',label:'Yes — immediate family',desc:'Parent, sibling, or child',score:8},
-    {value:'yes_extended',label:'Yes — extended family',desc:'Grandparent, aunt, uncle, cousin',score:5},
-    {value:'no',label:'No',score:0},{value:'unsure',label:"I'm not sure",score:3}]},
-  {id:'personal_history',question:'Have you ever been diagnosed with skin cancer or had a suspicious mole removed?',options:[
-    {value:'yes_cancer',label:'Yes — skin cancer diagnosis',score:10},
-    {value:'yes_mole',label:'Yes — suspicious mole removed',score:7},
-    {value:'no',label:'No',score:0}]},
-  {id:'sunburn_history',question:'How often have you experienced sunburn in your life?',subtitle:'Including childhood sunburns',options:[
-    {value:'frequently',label:'Frequently',desc:'Many times, including blistering burns',score:7},
-    {value:'occasionally',label:'Occasionally',desc:'A fair number of times over the years',score:4},
-    {value:'rarely',label:'Rarely',desc:'Once or twice',score:2},
-    {value:'never',label:'Never or almost never',score:0}]},
-  {id:'outdoor_work',question:'Does your job or lifestyle involve significant time outdoors?',options:[
-    {value:'work_outdoor',label:'Yes — I work outdoors',desc:'Construction, farming, gardening, sports coaching, etc.',score:6},
-    {value:'leisure_outdoor',label:'Yes — mostly leisure',desc:'Running, cycling, golf, hiking, sailing, etc.',score:4},
-    {value:'both',label:'Both work and leisure',score:7},
-    {value:'mostly_indoor',label:'Mostly indoors',score:1}]},
-  {id:'sun_holidays',question:'How often do you take holidays in sunny climates?',subtitle:'Mediterranean, Caribbean, Australia, etc.',options:[
-    {value:'3plus',label:'3 or more times a year',score:5},{value:'1-2',label:'1–2 times a year',score:3},
-    {value:'occasionally',label:'Every couple of years',score:2},{value:'rarely',label:'Rarely or never',score:0}]},
-  {id:'sunbed_use',question:'Have you ever used sunbeds?',options:[
-    {value:'regularly',label:'Yes — regularly',desc:'Weekly or monthly use',score:8},
-    {value:'occasionally',label:'Yes — occasionally',desc:'A few times',score:4},
-    {value:'past',label:'Yes — but not anymore',desc:'Used to but stopped',score:3},
-    {value:'never',label:'Never',score:0}]},
-  {id:'mole_count',question:'Approximately how many moles do you have on your body?',options:[
-    {value:'50plus',label:'50 or more',score:7},{value:'20-50',label:'20–50',score:5},
-    {value:'10-20',label:'10–20',score:3},{value:'under10',label:'Fewer than 10',score:1}]},
-  {id:'changing_moles',question:'Have you noticed any moles that have changed recently?',subtitle:'Changes in size, shape, colour, or feel',options:[
-    {value:'yes_multiple',label:'Yes — more than one',score:9},
-    {value:'yes_one',label:'Yes — one mole',score:7},
-    {value:'unsure',label:"I'm not sure",score:4},{value:'no',label:'No',score:0}]},
-  {id:'sunscreen_use',question:'How often do you use SPF sun protection?',options:[
-    {value:'always',label:'Daily — year round',score:0},
-    {value:'summer',label:'In summer or on sunny days',score:2},
-    {value:'holiday',label:'Only on holiday',score:4},
-    {value:'rarely',label:'Rarely or never',score:6}]},
-  {id:'immune',question:'Do you take any medication that suppresses your immune system?',subtitle:'For example after organ transplant, or for autoimmune conditions',options:[
-    {value:'yes',label:'Yes',score:6},{value:'no',label:'No',score:0},{value:'unsure',label:"I'm not sure",score:2}]},
+    {value:'under25',label:'Under 25'},{value:'25-34',label:'25–34'},
+    {value:'35-44',label:'35–44'},{value:'45-54',label:'45–54'},
+    {value:'55-64',label:'55–64'},{value:'65plus',label:'65+'}]},
+  {id:'mole_freckle_profile',question:'Which option best describes your skin overall?',options:[
+    {value:'very_few_moles_few_freckles',label:'I have very few or no moles, and very few freckles'},
+    {value:'very_few_moles_many_freckles',label:'I have very few or no moles, but many freckles'},
+    {value:'some_moles',label:'I have some moles'},
+    {value:'lots_of_moles',label:'I have lots of moles'}]},
+  {id:'mole_appearance',question:'If you have moles, do any of them look noticeably different from others?',options:[
+    {value:'yes',label:'Yes'},{value:'no',label:'No'},
+    {value:'no_moles',label:"I don't have any moles"},{value:'not_sure',label:"I'm not sure"}]},
+  {id:'self_check_confidence',question:'How confident do you feel checking your moles for changes over time?',options:[
+    {value:'confident',label:'I check regularly and feel confident noticing changes'},
+    {value:'difficult',label:'I check sometimes but find it difficult, especially in certain areas'},
+    {value:'dont_check',label:"I don't check my moles regularly"},
+    {value:'no_moles',label:"I don't have moles"}]},
+  {id:'personal_skin_cancer_history',question:'Have you ever been diagnosed with skin cancer?',options:[
+    {value:'yes_melanoma',label:'Yes, melanoma'},
+    {value:'yes_nmsc',label:'Yes, non-melanoma skin cancer (for example basal cell or squamous cell carcinoma)'},
+    {value:'no',label:'No'}]},
+  {id:'family_melanoma_history',question:'Has a close family member (parent, sibling, or child) been diagnosed with melanoma?',options:[
+    {value:'yes',label:'Yes'},{value:'no',label:'No'},{value:'not_sure',label:"I'm not sure"}]},
+  {id:'sun_damage_visible',
+    section_heading:'SUN EXPOSURE & UV DAMAGE — Sun-related risk is relevant even if you have few or no moles',
+    question:'Have you ever had sun exposure that caused noticeable skin damage? (For example redness, pain, blistering, peeling, or areas of rough or scaly skin)',
+    options:[
+    {value:'yes',label:'Yes'},{value:'no',label:'No'},{value:'not_sure',label:"I'm not sure"}]},
+  {id:'longterm_sun_exposure',question:'Have you spent long periods of time working or spending leisure time outdoors over many years?',options:[
+    {value:'yes',label:'Yes'},{value:'no',label:'No'}]},
+  {id:'sunburn_history',question:'Have you experienced repeated or severe sunburns at any point in your life?',options:[
+    {value:'yes',label:'Yes'},{value:'no',label:'No'},{value:'not_sure',label:"I'm not sure"}]},
+  {id:'sunbed_use',question:'Have you ever used tanning beds or sunbeds, especially before the age of 35?',options:[
+    {value:'yes',label:'Yes'},{value:'no',label:'No'}]},
+  {id:'new_changing_lesion',question:'Have you noticed a new or changing mark, a persistent spot, or an area of skin that looks or feels different?',options:[
+    {value:'yes',label:'Yes'},{value:'no',label:'No'},{value:'not_sure',label:"I'm not sure"}]},
+  {id:'lesion_symptoms',
+    question:'Have you noticed any of the following in a mark, spot, or area on your skin?',
+    instruction:'Select all that apply',
+    multiselect:true,
+    abcde_note:'The ABCDE criteria are used by dermatologists to assess moles (Friedman et al. 1985, JAMA).',
+    options:[
+      {value:'bleeding',label:'Bleeding'},
+      {value:'itching',label:'Itching'},
+      {value:'crusting',label:'Crusting or a non-healing area (i.e. starts to heal but never quite does)'},
+      {value:'_abcde_divider',label:'',divider:true},
+      {value:'asymmetry',label:'A mole that is asymmetric (one half doesn\'t match the other)'},
+      {value:'border',label:'Irregular, ragged or blurred edges on a mole'},
+      {value:'colour',label:'A mole with uneven colour — shades of brown, black, red, white or blue'},
+      {value:'diameter',label:'A mole larger than 6mm (about the size of a pencil eraser)'},
+      {value:'evolving',label:'A mole that has changed in size, shape, colour or feel'},
+      {value:'none',label:'None of the above'}
+    ]},
+  {id:'reason_for_visit',question:"What best describes why you're using this tool today?",options:[
+    {value:'routine',label:'Routine skin check'},
+    {value:'specific_concern',label:"I'm concerned about one specific mole or lesion"},
+    {value:'general_concern',label:'General concern about my skin'},
+    {value:'family_advice',label:'Family history or advice from someone else'}]},
+  {id:'immune_system',question:'Do you have a medical condition or treatment that affects your immune system?',options:[
+    {value:'yes',label:'Yes'},{value:'no',label:'No'},{value:'not_sure',label:"I'm not sure"}]},
 ];
 const riskNudges={
-  family_history:{yes_immediate:'Family history is one of the strongest risk indicators. Regular professional checks are especially important.'},
-  changing_moles:{yes_multiple:'Changes in multiple moles should always be assessed by a specialist.'},
-  sunbed_use:{regularly:'Regular sunbed use significantly increases skin cancer risk. A professional baseline check is recommended.'},
-  sunburn_history:{frequently:'Frequent severe sunburn is a significant risk factor for melanoma.'}
+  new_changing_lesion:{yes:'A new or changing skin area should always be assessed by a specialist. Please book a professional skin check.'},
+  personal_skin_cancer_history:{yes_melanoma:'A previous melanoma diagnosis means you are at significantly elevated risk. Regular professional monitoring is essential.'},
+  family_melanoma_history:{yes:'Family history of melanoma is one of the strongest risk indicators. Regular professional checks are especially important.'},
+  sunbed_use:{yes:'Sunbed use significantly increases skin cancer risk (WHO Group 1 carcinogen). A professional baseline check is recommended.'}
 };
 const clinics=[
   {name:'London Marylebone',postcodes:['W1','NW','WC'],bookUrl:'https://www.themoleclinic.co.uk/book'},
@@ -343,9 +384,8 @@ const abcdeItems=[
   {letter:'D',title:'Diameter',desc:'The mole is larger than 6mm (about the size of a pencil eraser).'},
   {letter:'E',title:'Evolving',desc:'The mole is changing in size, shape, colour, or feel. New symptoms like itching or bleeding.'},
 ];
-// mole_count is skipped in the questionnaire when AI analysis already detected it
 function shouldSkipQuestion(q){
-  return q.id==='mole_count'&&!!(st.skinAnalysis&&st.skinAnalysis.moleCountAnswer);
+  return false;
 }
 // ===== LOCALSTORAGE UTILITIES =====
 function getProfile(){try{return JSON.parse(localStorage.getItem('tmcProfile'))}catch(e){return null}}
@@ -476,133 +516,103 @@ const calculateRiskScore = (answers, abcdeAnswers, skinType, skinAnalysis) => {
   let score = 0;
 
   // ── AGE ──────────────────────────────────────────────────────────────
-  // Source: Cancer Research UK. Melanoma incidence by age.
-  // Risk increases sharply from age 45. Peak incidence 55-64.
+  // Source: Cancer Research UK. Melanoma incidence by age. Peak incidence 55-64.
   const ageScores = {'under25':2,'25-34':5,'35-44':10,'45-54':16,'55-64':20,'65plus':22};
   score += ageScores[answers.age] || 0;
 
-  // ── FAMILY HISTORY ───────────────────────────────────────────────────
-  // Source: Gandini et al. (2005). Meta-analysis of risk factors for
-  // cutaneous melanoma. European Journal of Cancer, 41(1), 28-44.
-  // First-degree relative with melanoma: RR 2.24. Extended family: RR ~1.5.
-  const familyScores = {
-    'yes_immediate': 18,  // RR 2.24 — strongest single genetic risk factor
-    'yes_extended': 10,   // RR ~1.5
-    'no': 0,
-    'unsure': 3           // Unknown history carries some residual risk
-  };
-  score += familyScores[answers.family_history] || 0;
+  // ── PERSONAL SKIN CANCER HISTORY ─────────────────────────────────────
+  // Bradford et al. (2010). JNCI. Previous melanoma: RR 8.5 for second primary.
+  // NMSC lower recurrence risk than melanoma.
+  const personalScores = {'yes_melanoma':20,'yes_nmsc':8,'no':0};
+  score += personalScores[answers.personal_skin_cancer_history] || 0;
 
-  // ── PERSONAL HISTORY ─────────────────────────────────────────────────
-  // Source: Bradford et al. (2010). JNCI.
-  // Previous melanoma: RR 8.5 for second primary melanoma.
-  const personalScores = {
-    'yes_cancer': 20,  // Very high — previous melanoma
-    'yes_mole': 12,    // Moderate-high — prior dysplastic naevus
-    'no': 0
-  };
-  score += personalScores[answers.personal_history] || 0;
+  // ── FAMILY MELANOMA HISTORY ──────────────────────────────────────────
+  // Gandini et al. (2005). First-degree relative with melanoma: RR 2.24.
+  const familyScores = {'yes':18,'no':0,'not_sure':3};
+  score += familyScores[answers.family_melanoma_history] || 0;
 
   // ── SUNBURN HISTORY ──────────────────────────────────────────────────
-  // Source: Gandini et al. (2005). Sunburn meta-analysis.
-  // Blistering sunburn in childhood: RR 2.0. 5+ lifetime burns: RR 1.68.
-  const sunburnScores = {'frequently':14,'occasionally':8,'rarely':3,'never':0};
+  // Gandini et al. (2005). Repeated/severe burns: RR ~1.68.
+  const sunburnScores = {'yes':12,'no':0,'not_sure':2};
   score += sunburnScores[answers.sunburn_history] || 0;
 
-  // ── OUTDOOR EXPOSURE ─────────────────────────────────────────────────
-  // Source: Gandini et al. (2005). Occupational/recreational UV exposure.
-  // Intermittent high UV more damaging than chronic moderate (outdoor workers paradox).
-  const outdoorScores = {
-    'work_outdoor': 6,       // Chronic exposure — moderate risk (adapted skin)
-    'leisure_outdoor': 9,    // Intermittent high exposure — higher risk
-    'both': 10,              // Highest cumulative exposure
-    'mostly_indoor': 0
-  };
-  score += outdoorScores[answers.outdoor_work] || 0;
+  // ── SUN DAMAGE VISIBLE ───────────────────────────────────────────────
+  // Direct evidence of cumulative UV damage on skin.
+  const sunDamageScores = {'yes':8,'no':0,'not_sure':2};
+  score += sunDamageScores[answers.sun_damage_visible] || 0;
 
-  // ── SUN HOLIDAYS ─────────────────────────────────────────────────────
-  // Source: Diffey (2004). Climatic influences on melanoma.
-  // Intermittent intense UV independently associated with melanoma risk.
-  const holidayScores = {'3plus':8,'1-2':5,'occasionally':2,'rarely':0};
-  score += holidayScores[answers.sun_holidays] || 0;
+  // ── LONGTERM SUN EXPOSURE ────────────────────────────────────────────
+  // Gandini et al. (2005). Occupational/recreational cumulative UV.
+  const longtermScores = {'yes':8,'no':0};
+  score += longtermScores[answers.longterm_sun_exposure] || 0;
 
   // ── SUNBED USE ───────────────────────────────────────────────────────
-  // Source: IARC Working Group (2006). Lancet Oncology.
-  // Sunbed use before age 35: RR 1.75. WHO Group 1 carcinogen.
-  const sunbedScores = {
-    'regularly': 14,    // Weekly/monthly — significantly elevated
-    'occasionally': 8,  // A few times
-    'past': 6,          // Historic use still confers risk
-    'never': 0
-  };
+  // IARC Working Group (2006). Lancet Oncology. Use before 35: RR 1.75. WHO Group 1 carcinogen.
+  const sunbedScores = {'yes':14,'no':0};
   score += sunbedScores[answers.sunbed_use] || 0;
 
-  // ── MOLE COUNT ───────────────────────────────────────────────────────
-  // Source: Bataille et al. (2015). BJD. Tucker et al. (1997).
-  // 50+ moles: RR 4.8 vs <15 moles.
-  // If AI arm analysis available and reliable, use that; otherwise self-reported.
-  let moleCountAnswer = answers.mole_count;
+  // ── MOLE / FRECKLE PROFILE ───────────────────────────────────────────
+  // Tucker et al. (1997). 50+ moles: RR 4.8 vs fewer than 15.
+  // Freckles indicate UV sensitivity (Gandini 2005).
+  const moleProfileScores = {
+    'very_few_moles_few_freckles': 0,
+    'very_few_moles_many_freckles': 3,
+    'some_moles': 6,
+    'lots_of_moles': 14
+  };
+  score += moleProfileScores[answers.mole_freckle_profile] || 0;
+
+  // Arm AI mole count adds bonus if reliable and high
   if (skinAnalysis && skinAnalysis.confidence !== 'low' &&
       skinAnalysis.moleCount !== -1 && skinAnalysis.moleCountCategory) {
-    const catMap = {'under7':'under10','7to10':'10to50','11plus':'50plus'};
-    moleCountAnswer = catMap[skinAnalysis.moleCountCategory] || moleCountAnswer;
-  }
-  const moleScores = {
-    'under10': 2,
-    '10-20': 5,    // questionnaire value
-    '20-50': 8,    // questionnaire value
-    '10to50': 8,   // AI-derived value
-    '50plus': 16   // RR 4.8 vs <15 moles (Tucker 1997)
-  };
-  score += moleScores[moleCountAnswer] || 0;
-
-  // ── CHANGING MOLES ───────────────────────────────────────────────────
-  // Source: NHS / NICE guidelines. ABCDE criteria.
-  // Evolving mole is the single most important warning sign.
-  const changingMoleScores = {
-    'yes_multiple': 18,  // Urgent — multiple evolving lesions
-    'yes_one': 12,       // High — single evolving lesion
-    'no': 0,
-    'unsure': 4
-  };
-  score += changingMoleScores[answers.changing_moles] || 0;
-
-  // ── SUNSCREEN USE ────────────────────────────────────────────────────
-  // Source: Green et al. (1999). Daily SPF 15 reduces melanoma by 50% over 10 years.
-  const sunscreenScores = {
-    'always': -4,    // Consistent protection
-    'summer': -2,    // In summer or on sunny days
-    'holiday': 0,    // Only on holiday
-    'rarely': 1      // No regular protection
-  };
-  score += sunscreenScores[answers.sunscreen_use] || 0;
-
-  // ── IMMUNOSUPPRESSION ────────────────────────────────────────────────
-  // Source: Grulich et al. (2007). Lancet. RR 3.4 for melanoma.
-  const immuneScores = {'yes':12,'no':0};
-  score += immuneScores[answers.immune] || 0;
-
-  // ── ABCDE SELF-CHECK ─────────────────────────────────────────────────
-  // Source: Friedman et al. (1985). ABCDE criteria.
-  // Each criterion independently associated with malignant features.
-  if (abcdeAnswers) {
-    const abcdeCount = Object.values(abcdeAnswers).filter(Boolean).length;
-    if (abcdeCount === 1) score += 8;
-    else if (abcdeCount === 2) score += 14;
-    else if (abcdeCount === 3) score += 18;
-    else if (abcdeCount >= 4) score += 22;
+    const catBoost = {'11plus':8,'7to10':2};
+    score += catBoost[skinAnalysis.moleCountCategory] || 0;
   }
 
-  // ── SKIN TYPE ADJUSTMENT (MONK SCALE) ────────────────────────────────
-  // Source: Gandini et al. (2005). Fitzpatrick I-II (very fair): RR 2.09.
-  // Adjustment reflects INCIDENCE not mortality.
+  // ── MOLE APPEARANCE ──────────────────────────────────────────────────
+  // Atypical/dysplastic naevi: significant independent risk factor.
+  const moleAppScores = {'yes':14,'no':0,'no_moles':0,'not_sure':4};
+  score += moleAppScores[answers.mole_appearance] || 0;
+
+  // ── NEW / CHANGING LESION ────────────────────────────────────────────
+  // NHS/NICE: evolving or new lesion is primary warning sign.
+  const newLesionScores = {'yes':18,'no':0,'not_sure':5};
+  score += newLesionScores[answers.new_changing_lesion] || 0;
+
+  // ── LESION SYMPTOMS + ABCDE (merged multi-select) ────────────────────
+  // Friedman et al. (1985). ABCDE criteria compound risk.
+  // Symptoms (bleeding/itching/crusting) count alongside ABCDE criteria.
+  const symptoms = answers.lesion_symptoms;
+  if (Array.isArray(symptoms) && symptoms.length > 0 && !symptoms.includes('none')) {
+    const criteriaCount = symptoms.filter(s => s !== 'none').length;
+    if (criteriaCount === 1) score += 8;
+    else if (criteriaCount === 2) score += 14;
+    else if (criteriaCount === 3) score += 18;
+    else if (criteriaCount >= 4) score += 22;
+  }
+
+  // ── IMMUNE SYSTEM ─────────────────────────────────────────────────────
+  // Grulich et al. (2007). Lancet. Immunosuppression RR 3.4 for melanoma.
+  const immuneScores = {'yes':12,'no':0,'not_sure':3};
+  score += immuneScores[answers.immune_system] || 0;
+
+  // ── REASON FOR VISIT ─────────────────────────────────────────────────
+  const visitScores = {'specific_concern':6,'routine':0,'general_concern':2,'family_advice':3};
+  score += visitScores[answers.reason_for_visit] || 0;
+
+  // ── SELF CHECK CONFIDENCE ────────────────────────────────────────────
+  // Harder to self-monitor = higher missed-change risk.
+  const selfCheckScores = {'confident':0,'difficult':3,'dont_check':6,'no_moles':0};
+  score += selfCheckScores[answers.self_check_confidence] || 0;
+
+  // ── SKIN TYPE ADJUSTMENT (MONK SCALE, SILENT) ────────────────────────
+  // Gandini et al. (2005). Fitzpatrick I-II (very fair): RR 2.09.
   // We do NOT reduce score for darker tones — melanoma is equally deadly
   // across skin tones but diagnosed later in darker skin (Gadare et al. 2026).
   const monkTone = skinType || (skinAnalysis && skinAnalysis.monkTone);
   if (monkTone) {
     if (monkTone <= 2) score += 8;
     else if (monkTone <= 4) score += 4;
-    // tones 5-10: no adjustment — see note above
   }
 
   return Math.min(100, Math.max(0, Math.round(score)));
@@ -631,31 +641,89 @@ function getRecommendedService(riskLevel,changingMoles){
     return{name:'Targeted Mole Check',desc:'Focused examination of specific moles or areas of concern using dermoscopy. Ideal if you have particular moles you\'re worried about.',price:'from £150'};
   return{name:'Skin Health Screen',desc:'A professional baseline assessment to establish your skin health profile and set up ongoing monitoring. Perfect for peace of mind.',price:'from £100'};
 }
+const getServiceRecommendation = (answers) => {
+  const domainA_trigger =
+    answers.mole_appearance === 'yes' ||
+    answers.mole_freckle_profile === 'lots_of_moles' ||
+    answers.personal_skin_cancer_history === 'yes_melanoma' ||
+    answers.family_melanoma_history === 'yes';
+
+  const symptoms = answers.lesion_symptoms || [];
+  const hasSymptoms = Array.isArray(symptoms)
+    ? symptoms.some(s => ['bleeding','itching','crusting'].includes(s))
+    : false;
+  const hasABCDE = Array.isArray(symptoms)
+    ? symptoms.some(s => ['asymmetry','border','colour','diameter','evolving'].includes(s))
+    : false;
+  const domainD_trigger =
+    answers.new_changing_lesion === 'yes' ||
+    hasSymptoms ||
+    hasABCDE ||
+    answers.reason_for_visit === 'specific_concern';
+
+  const domainC_trigger =
+    answers.sun_damage_visible === 'yes' ||
+    answers.longterm_sun_exposure === 'yes' ||
+    answers.sunburn_history === 'yes' ||
+    answers.sunbed_use === 'yes' ||
+    answers.immune_system === 'yes' ||
+    answers.personal_skin_cancer_history === 'yes_nmsc';
+
+  if (domainA_trigger) {
+    return {
+      primary: 'mole_mapping',
+      urgency: domainD_trigger ? 'urgent' : 'routine',
+      title: 'Mole Mapping',
+      description: 'Based on your mole profile and history, a full Mole Mapping assessment is recommended. This provides a comprehensive baseline record of all your moles and enables accurate monitoring over time.',
+      show_fbsc: true, show_mole_mapping: true, show_single_mole: true
+    };
+  } else if (domainD_trigger) {
+    return {
+      primary: 'fbsc_urgent',
+      urgency: 'urgent',
+      title: 'Full Body Skin Check',
+      description: "You've described a new, changing or symptomatic area of skin. We recommend booking a Full Body Skin Check as soon as possible so a specialist can assess it properly. Please do not wait.",
+      show_fbsc: true, show_mole_mapping: true, show_single_mole: true
+    };
+  } else if (domainC_trigger) {
+    return {
+      primary: 'fbsc',
+      urgency: 'routine',
+      title: 'Full Body Skin Check',
+      description: 'Your sun exposure history means a professional Full Body Skin Check is the most appropriate next step. Skin cancers related to UV damage can appear anywhere on the body and may not look like a mole.',
+      show_fbsc: true, show_mole_mapping: true, show_single_mole: true
+    };
+  } else {
+    return {
+      primary: 'fbsc',
+      urgency: 'routine',
+      title: 'Full Body Skin Check',
+      description: 'A Full Body Skin Check is appropriate for everyone, regardless of skin type or mole count. It gives you a professional baseline and peace of mind.',
+      show_fbsc: true, show_mole_mapping: true, show_single_mole: true
+    };
+  }
+};
 function getNearestClinics(postcode){
   const pc=(postcode||'').toUpperCase().replace(/\s/g,'');
   return clinics.map(c=>({...c,score:c.postcodes.reduce((best,p)=>pc.startsWith(p)?Math.max(best,p.length):best,0)})).sort((a,b)=>b.score-a.score);
 }
 function getKeyRiskFactorBullets(answers,skinType,abcdeAnswers){
   const b=[];
-  const fh=answers.family_history;
-  if(fh==='yes_immediate')b.push('Family history of skin cancer (immediate family)');
-  else if(fh==='yes_extended')b.push('Family history of skin cancer (extended family)');
-  const ph=answers.personal_history;
-  if(ph==='yes_cancer')b.push('Previous personal skin cancer diagnosis');
-  else if(ph==='yes_mole')b.push('Suspicious mole previously removed');
-  const sb=answers.sunburn_history;
-  if(sb==='frequently')b.push('Frequent sunburn history, including blistering burns');
-  else if(sb==='occasionally')b.push('Occasional sunburn history');
-  const su=answers.sunbed_use;
-  if(su==='regularly')b.push('Regular sunbed use');
-  else if(su==='occasionally'||su==='past')b.push('Previous sunbed use');
-  const cm=answers.changing_moles;
-  if(cm==='yes_multiple')b.push('Multiple changing moles noted');
-  else if(cm==='yes_one')b.push('One changing mole noted');
-  const mc=answers.mole_count;
-  if(mc==='50plus')b.push('50+ moles on body');
-  const abcdeCount=Object.values(abcdeAnswers||{}).filter(Boolean).length;
-  if(abcdeCount>0){const letters=Object.entries(abcdeAnswers||{}).filter(([,v])=>v).map(([k])=>k).join(', ');b.push(`ABCDE concerns: ${letters}`);}
+  if(answers.family_melanoma_history==='yes')b.push('Family history of melanoma');
+  if(answers.personal_skin_cancer_history==='yes_melanoma')b.push('Previous melanoma diagnosis');
+  else if(answers.personal_skin_cancer_history==='yes_nmsc')b.push('Previous non-melanoma skin cancer');
+  if(answers.sunburn_history==='yes')b.push('Significant sunburn history');
+  if(answers.sunbed_use==='yes')b.push('Sunbed use');
+  if(answers.new_changing_lesion==='yes')b.push('New or changing skin lesion noted');
+  if(answers.mole_freckle_profile==='lots_of_moles')b.push('High mole count');
+  if(answers.mole_appearance==='yes')b.push('Moles that look noticeably different from others');
+  const syms=answers.lesion_symptoms;
+  if(Array.isArray(syms)&&syms.length>0&&!syms.includes('none')){
+    const abcde=syms.filter(s=>['asymmetry','border','colour','diameter','evolving'].includes(s));
+    if(abcde.length>0)b.push(`ABCDE concerns: ${abcde.join(', ')}`);
+    const sItems=syms.filter(s=>['bleeding','itching','crusting'].includes(s));
+    if(sItems.length>0)b.push(`Lesion symptoms: ${sItems.join(', ')}`);
+  }
   if(skinType<=2)b.push('Very fair skin — highest UV sensitivity');
   if(b.length===0)b.push('No major risk factors identified in your profile');
   return b.slice(0,5);
@@ -665,23 +733,23 @@ function generateRecommendations(profile,wd){
   const{answers,skinType,riskLevel}=profile;
   const uv=wd&&wd.uv!=null?wd.uv:null;
   const hour=new Date().getHours();
-  if(answers.sunscreen_use==='rarely'||answers.sunscreen_use==='holiday')
-    recs.push('Apply SPF 30+ sunscreen daily — UV rays penetrate cloud cover year-round. This is the single most effective preventive measure per NHS skin cancer prevention guidance.');
-  else if(uv!=null&&uv>=3){
+  if(uv!=null&&uv>=3){
     const sp=getPersonalisedSPF(uv,skinType);
-    recs.push(`Today\'s UV is ${Math.round(uv)} (${getUVBand(uv).level}). ${sp.msg}${sp.spf?' — reapply every 2 hours when outdoors':''}.`);
+    recs.push(`Today's UV is ${Math.round(uv)} (${getUVBand(uv).level}). ${sp.msg}${sp.spf?' — reapply every 2 hours when outdoors':''}.`);
+  }else{
+    recs.push('Apply SPF 30+ sunscreen daily — UV rays penetrate cloud cover year-round.');
   }
-  if(answers.changing_moles==='yes_multiple'||answers.changing_moles==='yes_one')
-    recs.push('You reported mole changes. EADO guidance recommends any changing mole be assessed by a dermatologist promptly. Do not delay booking a check.');
-  if(answers.family_history==='yes_immediate'||answers.family_history==='yes_extended')
-    recs.push('With a family history of skin cancer, annual professional skin checks are strongly recommended — earlier and more frequently than the general population guideline (NHS guidance).');
+  if(answers.new_changing_lesion==='yes')
+    recs.push('You reported a new or changing skin area. EADO guidance recommends any changing lesion be assessed by a dermatologist promptly. Do not delay booking a check.');
+  if(answers.family_melanoma_history==='yes')
+    recs.push('With a family history of melanoma, annual professional skin checks are strongly recommended — earlier and more frequently than the general population guideline (NHS guidance).');
   if(riskLevel==='VERY HIGH'||riskLevel==='HIGH')
-    recs.push('Your risk profile indicates a professional full-body mole check every 6 months is recommended. Early detection dramatically improves outcomes (NHS Cancer Research data).');
+    recs.push('Your risk profile indicates a professional full-body skin check is recommended. Early detection dramatically improves outcomes (NHS Cancer Research data).');
   else if(riskLevel==='MODERATE'&&!recs.some(r=>r.includes('annually')))
     recs.push('We recommend a professional skin check annually. Your profile includes factors that warrant regular monitoring by a qualified dermatologist.');
-  if(answers.mole_count==='50plus'||answers.mole_count==='20-50')
+  if(answers.mole_freckle_profile==='lots_of_moles')
     recs.push('With a high mole count, keep a monthly photo log of any moles that change in size, shape, or colour. Use the ABCDE rule as your guide.');
-  if(answers.outdoor_work==='both'||answers.outdoor_work==='work_outdoor')
+  if(answers.longterm_sun_exposure==='yes')
     recs.push('Your high outdoor UV exposure means protective clothing (UPF 50+), a wide-brimmed hat, and UV-blocking sunglasses are essential alongside daily SPF use.');
   if(hour>=11&&hour<=15&&uv!=null&&uv>=3)
     recs.push('&#9728;&#65039; You are currently in the peak UV window (11:00–15:00). Seek shade, wear a hat, and avoid prolonged direct sun exposure right now.');
@@ -696,13 +764,13 @@ function getFitzpatrickLabel(monkTone){
 }
 function getPersonalisedSummary(profile){
   const{skinType,riskLevel,answers}=profile;
-  const light=skinType<=3,dark=skinType>=7;
-  const fh=answers.family_history==='yes_immediate'||answers.family_history==='yes_extended';
-  const cm=answers.changing_moles==='yes_multiple'||answers.changing_moles==='yes_one';
-  const burn=answers.sunburn_history==='frequently';
-  if(riskLevel==='VERY HIGH')return`Based on multiple high-risk factors${fh?' including family history of skin cancer':cm?' including changing moles':''}, you are in a very high risk category requiring prompt professional assessment.`;
-  if(riskLevel==='HIGH')return`As someone with ${light?'fair skin':'dark skin tone with equal melanoma risk'}${fh?' and a family history of skin cancer':burn?' and a history of significant sunburn':''}, you are in a higher risk category for skin cancer.`;
-  if(riskLevel==='MODERATE')return`Your profile shows ${cm?'some mole changes':'several moderate risk factors'} that make regular professional skin checks an important part of your healthcare.`;
+  const light=skinType<=3;
+  const fh=answers.family_melanoma_history==='yes';
+  const cm=answers.new_changing_lesion==='yes';
+  const burn=answers.sunburn_history==='yes';
+  if(riskLevel==='VERY HIGH')return`Based on multiple high-risk factors${fh?' including family history of melanoma':cm?' including a new or changing lesion':''}, you are in a very high risk category requiring prompt professional assessment.`;
+  if(riskLevel==='HIGH')return`As someone with ${light?'fair skin':'a skin tone with equal melanoma risk'}${fh?' and a family history of melanoma':burn?' and a history of significant sunburn':''}, you are in a higher risk category for skin cancer.`;
+  if(riskLevel==='MODERATE')return`Your profile shows ${cm?'a new or changing lesion':'several moderate risk factors'} that make regular professional skin checks an important part of your healthcare.`;
   return`Your risk profile is currently low, but regular skin self-checks and annual professional assessments remain recommended for everyone.`;
 }
 function getGreeting(){const h=new Date().getHours();if(h>=5&&h<12)return'Good morning';if(h>=12&&h<17)return'Good afternoon';if(h>=17&&h<22)return'Good evening';return'Hello';}
@@ -739,10 +807,10 @@ function showToast(msg){
   document.body.appendChild(t);setTimeout(()=>t.remove(),2500);
 }
 function getProgress(){
-  const screens=['welcome','email','consent','arm_camera','questionnaire','abcde','consent_location','consent_travel','consent_notifications','loading','homepage'];
+  const screens=['welcome','email','consent','arm_camera','q_intro','questionnaire','consent_location','consent_travel','consent_notifications','loading','homepage'];
   if(st.screen==='questionnaire'){
     const vis=questions.filter(q=>!shouldSkipQuestion(q));
-    const base=4/11;return Math.round((base+(st.currentQuestion/vis.length)*(1/11))*100);
+    const base=5/11;return Math.round((base+(st.currentQuestion/vis.length)*(1/11))*100);
   }
   const idx=screens.indexOf(st.screen);
   return Math.round((Math.max(idx,0)/(screens.length-1))*100);
@@ -751,14 +819,14 @@ function getProgressLabel(){
   if(st.screen==='questionnaire'){
     const vis=questions.filter(q=>!shouldSkipQuestion(q));
     const visIdx=vis.findIndex(q=>q.id===questions[st.currentQuestion].id)+1;
-    return`STEP 3 OF 5 — QUESTION ${visIdx} OF ${vis.length}`;
+    return`STEP 3 OF 4 — QUESTION ${visIdx} OF ${vis.length}`;
   }
   const labels={
-    welcome:'',email:'STEP 1 OF 5 — YOUR DETAILS',consent:'STEP 1 OF 5 — PRIVACY &amp; CONSENT',
-    arm_camera:'STEP 2 OF 5 — ARM ANALYSIS',
-    abcde:'STEP 4 OF 5 — SELF CHECK',
-    consent_location:'STEP 5 OF 5 — LOCATION',consent_travel:'STEP 5 OF 5 — TRAVEL',
-    consent_notifications:'STEP 5 OF 5 — REMINDERS',loading:'BUILDING YOUR PROFILE…',
+    welcome:'',email:'STEP 1 OF 4 — YOUR DETAILS',consent:'STEP 1 OF 4 — PRIVACY &amp; CONSENT',
+    arm_camera:'STEP 2 OF 4 — ARM ANALYSIS',
+    q_intro:'STEP 3 OF 4 — YOUR RISK PROFILE',
+    consent_location:'STEP 4 OF 4 — LOCATION',consent_travel:'STEP 4 OF 4 — TRAVEL',
+    consent_notifications:'STEP 4 OF 4 — REMINDERS',loading:'BUILDING YOUR PROFILE…',
   };
   return labels[st.screen]||'';
 }
@@ -1183,8 +1251,8 @@ function showAnalysisResults(){
     </div>
   </div>`;
 }
-function proceedWithoutAnalysis(){st.currentQuestion=0;navigate('questionnaire');}
-function proceedFromAnalysis(){st.currentQuestion=0;navigate('questionnaire');}
+function proceedWithoutAnalysis(){st.currentQuestion=0;navigate('q_intro');}
+function proceedFromAnalysis(){st.currentQuestion=0;navigate('q_intro');}
 // ===== RENDER FUNCTIONS =====
 function renderWelcome(){
   return`<div class="screen">
@@ -1199,7 +1267,7 @@ function renderWelcome(){
       <div class="feature-list">
         <div class="feature-item animate-in-delay-1"><div class="feature-icon feature-icon-teal">&#129504;</div><div><div class="feature-title">AI Skin Analysis</div><div class="feature-desc">Camera analysis of your arm to detect your Monk skin tone and mole profile — powered by Claude AI</div></div></div>
         <div class="feature-item animate-in-delay-2"><div class="feature-icon feature-icon-coral">&#9728;</div><div><div class="feature-title">Live UV &amp; Sun Safety</div><div class="feature-desc">Real-time UV index with personalised SPF recommendation for your skin tone</div></div></div>
-        <div class="feature-item animate-in-delay-3"><div class="feature-icon feature-icon-gold">&#128202;</div><div><div class="feature-title">Your Skin Safety Dashboard</div><div class="feature-desc">Personalised daily check-in: UV, risk summary, booking recommendations</div></div></div>
+        <div class="feature-item animate-in-delay-3"><div class="feature-icon feature-icon-gold">&#128202;</div><div><div class="feature-title">Your Skin Safety Dashboard</div><div class="feature-desc">Clinically informed questions covering your skin profile, personal history, UV exposure, and any areas of concern</div></div></div>
       </div>
       <div class="disclaimer animate-in-delay-4"><strong>Important:</strong> This is not a medical diagnosis. This tool helps you understand your skin cancer risk and recommends appropriate professional skin checks.</div>
       <div class="trust-badge animate-in-delay-4">Your data stays on your device — we never sell your details</div>
@@ -1275,28 +1343,62 @@ function renderArmCamera(){
     ${renderFooter()}
   </div>`;
 }
+function renderQIntro(){
+  return`<div class="screen">
+    ${renderHeader()}
+    <div class="q-intro-screen animate-in">
+      <h2 class="title-lg" style="color:white;margin-bottom:20px">About your skin risk profile</h2>
+      <div style="font-size:15px;color:rgba(255,255,255,.85);line-height:1.75">
+        <p style="margin-bottom:16px">Skin cancer can affect people of all skin types and does not always arise from moles. Some skin cancers are related to moles and changes over time. Others — particularly non-melanoma skin cancers such as basal cell carcinoma (BCC) and squamous cell carcinoma (SCC) — are related to cumulative sun exposure and sun-damaged skin.</p>
+        <p>These questions help us understand different types of skin cancer risk and recommend the most appropriate professional skin check for you.</p>
+      </div>
+    </div>
+    <div class="bottom-action"><button class="btn-primary" onclick="st.currentQuestion=0;navigate('questionnaire')">Continue &#8594;</button></div>
+    ${renderFooter()}
+  </div>`;
+}
 function renderQuestionnaire(){
   const q=questions[st.currentQuestion];
   const sel=st.answers[q.id];
-  const nudge=riskNudges[q.id]&&sel&&riskNudges[q.id][sel]
-    ?`<div class="risk-nudge"><div class="risk-nudge-icon">&#8505;</div><div class="risk-nudge-text">${riskNudges[q.id][sel]}</div></div>`:'';
   const vis=questions.filter(vq=>!shouldSkipQuestion(vq));
   const isLastVis=vis[vis.length-1]?.id===q.id;
+  const nudgeVal=q.multiselect?null:sel;
+  const nudge=riskNudges[q.id]&&nudgeVal&&riskNudges[q.id][nudgeVal]
+    ?`<div class="risk-nudge"><div class="risk-nudge-icon">&#8505;</div><div class="risk-nudge-text">${riskNudges[q.id][nudgeVal]}</div></div>`:'';
+  const isDisabled=q.multiselect?(!Array.isArray(sel)||sel.length===0):!sel;
+  let optionsHtml='';
+  if(q.multiselect){
+    const curSel=Array.isArray(sel)?sel:[];
+    let passedDivider=false;
+    optionsHtml=q.options.map(opt=>{
+      if(opt.divider){
+        passedDivider=true;
+        return`<div class="abcde-divider">ABCDE mole assessment</div>`;
+      }
+      const checked=curSel.includes(opt.value);
+      return`<div class="option-card ${checked?'selected':''}" data-answer="${opt.value}">
+        <div class="option-checkbox"></div>
+        <div><div class="option-label">${opt.label}</div></div>
+      </div>`;
+    }).join('');
+    if(q.abcde_note)optionsHtml+=`<p class="abcde-note">${q.abcde_note}</p>`;
+  }else{
+    optionsHtml=q.options.map(opt=>`<div class="option-card ${sel===opt.value?'selected':''}" data-answer="${opt.value}">
+      <div class="radio"></div>
+      <div><div class="option-label">${opt.label}</div>${opt.desc?`<div class="option-desc">${opt.desc}</div>`:''}</div>
+    </div>`).join('');
+  }
   return`<div class="screen">
     ${renderHeader()}
     <div class="content" style="animation:slideInRight .3s ease-out">
+      ${q.section_heading?`<div class="section-heading-pill">${q.section_heading}</div>`:''}
       <h2 class="title-lg">${q.question}</h2>
       ${q.subtitle?`<p class="subtitle-sm">${q.subtitle}</p>`:''}
-      ${q.id==='mole_count'&&st.skinAnalysis?.moleCountAnswer?`<div style="background:var(--tmc-teal-light);border:1px solid rgba(46,196,182,.35);border-radius:var(--radius-sm);padding:10px 14px;font-size:13px;color:var(--tmc-teal-dark);margin-bottom:12px">&#10003; Pre-filled from your arm analysis</div>`:''}
-      <div style="margin-top:20px">
-        ${q.options.map(opt=>`<div class="option-card ${sel===opt.value?'selected':''}" data-answer="${opt.value}">
-          <div class="radio"></div>
-          <div><div class="option-label">${opt.label}</div>${opt.desc?`<div class="option-desc">${opt.desc}</div>`:''}</div>
-        </div>`).join('')}
-      </div>
+      ${q.instruction?`<p class="subtitle-sm" style="font-style:italic">${q.instruction}</p>`:''}
+      <div style="margin-top:20px">${optionsHtml}</div>
       ${nudge}
     </div>
-    <div class="bottom-action"><button class="btn-primary" id="questionNext" ${!sel?'disabled':''}>${isLastVis?'Continue &#8594;':'Next Question &#8594;'}</button></div>
+    <div class="bottom-action"><button class="btn-primary" id="questionNext" ${isDisabled?'disabled':''}>${isLastVis?'Continue &#8594;':'Next Question &#8594;'}</button></div>
     ${renderFooter()}
   </div>`;
 }
@@ -1518,11 +1620,48 @@ function renderHomepage(){
       </div>
       <div class="hp-section-label" style="margin-top:20px">Recommendations</div>
       <div class="rec-card">${recs.length?recs.map(r=>`<div class="rec-item"><div class="rec-dot"></div><span>${r}</span></div>`).join(''):'<div class="rec-item"><div class="rec-dot"></div><span>Continue applying SPF daily and book an annual professional skin check.</span></div>'}</div>
+      <div class="hp-section-label" style="margin-top:20px">Recommended Service</div>
+      ${(()=>{
+        const rec=p.serviceRecommendation||getServiceRecommendation(p.answers);
+        const isUrgent=rec.primary==='fbsc_urgent';
+        const isMoleMap=rec.primary==='mole_mapping';
+        const wrapStyle=isUrgent?'background:#00635a;color:white;':isMoleMap?'background:#1a2e2e;color:white;':'background:white;border:2px solid var(--tmc-teal);';
+        const badgeStyle=isUrgent?'background:rgba(245,158,11,.3);color:#fef3c7;':isMoleMap?'background:var(--tmc-teal);color:white;':'background:var(--tmc-teal-light);color:var(--tmc-teal-dark);';
+        const badgeText=isUrgent?'&#9888; Book soon':isMoleMap?'Personalised recommendation':'Recommended for you';
+        const titleColor=(!isUrgent&&!isMoleMap)?'color:var(--tmc-navy);':'color:white;';
+        const descColor=(!isUrgent&&!isMoleMap)?'color:var(--tmc-gray-600);':'color:rgba(255,255,255,.85);';
+        const tile1Primary=rec.primary==='fbsc'||rec.primary==='fbsc_urgent';
+        const tile2Primary=rec.primary==='mole_mapping';
+        const disclaimer=(!isUrgent&&!isMoleMap)?'class="svc-disclaimer-light"':'class="svc-disclaimer"';
+        return`<div class="svc-rec-wrap" style="${wrapStyle}">
+          <div class="svc-rec-badge" style="${badgeStyle}">${badgeText}</div>
+          <div class="svc-rec-title" style="${titleColor}">${rec.title} — Recommended</div>
+          <div class="svc-rec-desc" style="${descColor}">${rec.description}</div>
+          <div class="svc-tile-row">
+            <div class="svc-tile${tile1Primary?' svc-tile-primary':''}">
+              <div class="svc-tile-name">Full Body Skin Check</div>
+              <div class="svc-tile-desc">A head-to-toe professional assessment of all skin and moles.</div>
+              <button class="svc-tile-btn" onclick="window.open('https://www.themoleclinic.co.uk/book','_blank')">Book &#8594;</button>
+            </div>
+            <div class="svc-tile${tile2Primary?' svc-tile-primary':''}">
+              <div class="svc-tile-name">Mole Mapping</div>
+              <div class="svc-tile-desc">Comprehensive digital mapping and monitoring of all moles.</div>
+              <button class="svc-tile-btn" onclick="window.open('https://www.themoleclinic.co.uk/book','_blank')">Book &#8594;</button>
+            </div>
+            <div class="svc-tile">
+              <div class="svc-tile-name">Single Mole Report</div>
+              <div class="svc-tile-desc">A professional assessment of one specific mole.</div>
+              <button class="svc-tile-btn" onclick="window.open('https://www.themoleclinic.co.uk/book','_blank')">Book &#8594;</button>
+            </div>
+          </div>
+          <p ${disclaimer}>All services are provided by qualified dermatologists and skin cancer specialists. This tool provides guidance only and does not replace a clinical assessment.</p>
+        </div>`;
+      })()}
       <div class="hp-section-label" style="margin-top:20px">Book a Check</div>
       <div class="book-card">
         <div class="book-card-row"><span class="book-card-label">Your last check</span><span class="book-card-value">${p.lastCheckDate||'Not recorded'}</span></div>
         <div class="book-card-row"><span class="book-card-label">TMC recommends</span><span class="book-card-value"><span class="freq-badge ${freqClass}">${checkFreq}</span></span></div>
-        <button class="book-btn-hp" onclick="window.open('https://www.themoleclinic.co.uk/book','_blank')">Book at The Mole Clinic &#8594;</button>
+        ${(()=>{const rec=p.serviceRecommendation||getServiceRecommendation(p.answers);return rec.urgency==='urgent'?`<div class="urgent-notice">Based on your answers, we recommend booking as soon as possible.</div><button class="book-btn-urgent" onclick="window.open('https://www.themoleclinic.co.uk/book','_blank')">Book at The Mole Clinic &#8594;</button>`:`<button class="book-btn-hp" onclick="window.open('https://www.themoleclinic.co.uk/book','_blank')">Book at The Mole Clinic &#8594;</button>`;})()}
       </div>
       <div style="margin-top:20px">
         <div class="collapsible-header" onclick="toggleMethodology()">
@@ -1636,6 +1775,7 @@ async function initHomepageAsync(){
 }
 // ===== PROFILE MANAGEMENT =====
 function buildProfile(){
+  const serviceRecommendation=getServiceRecommendation(st.answers);
   return{
     version:'0.3',name:st.name,email:st.email,postcode:st.postcode,
     consentData:st.consentData,consentMarketing:st.consentMarketing,
@@ -1643,6 +1783,7 @@ function buildProfile(){
     skinType:st.skinType,skinAnalysis:st.skinAnalysis||null,
     answers:{...st.answers},abcdeAnswers:{...st.abcdeAnswers},
     riskScore:st.riskScore,riskLevel:st.riskLevel,
+    serviceRecommendation,
     lat:st.lat,lon:st.lon,city:st.city,country:st.country,country_code:st.country_code,
     homeCountry:st.country_code||(st.postcode?'gb':''),locationTimestamp:st.lat?Date.now():null,
     profileCreated:new Date().toISOString().split('T')[0],lastCheckDate:null,awayFromHome:false,
@@ -1686,6 +1827,7 @@ function render(){
     case 'email':html=renderEmail();break;
     case 'consent':html=renderConsent();break;
     case 'arm_camera':html=renderArmCamera();break;
+    case 'q_intro':html=renderQIntro();break;
     case 'questionnaire':html=renderQuestionnaire();break;
     case 'abcde':html=renderABCDE();break;
     case 'consent_location':html=renderConsentLocation();break;
@@ -1715,14 +1857,30 @@ function bindEvents(){
   if(consentMktEl)consentMktEl.addEventListener('click',()=>{st.consentMarketing=!st.consentMarketing;render();});
   if(consentNext)consentNext.addEventListener('click',()=>navigate('arm_camera'));
   // Questionnaire screen
-  document.querySelectorAll('.option-card[data-answer]').forEach(c=>c.addEventListener('click',()=>{st.answers[questions[st.currentQuestion].id]=c.dataset.answer;render();}));
+  document.querySelectorAll('.option-card[data-answer]').forEach(c=>c.addEventListener('click',()=>{
+    const q=questions[st.currentQuestion];
+    const val=c.dataset.answer;
+    if(q.multiselect){
+      let cur=Array.isArray(st.answers[q.id])?[...st.answers[q.id]]:[];
+      if(val==='none'){
+        cur=cur.includes('none')?[]:['none'];
+      }else{
+        cur=cur.filter(v=>v!=='none');
+        cur.includes(val)?cur=cur.filter(v=>v!==val):cur.push(val);
+      }
+      st.answers[q.id]=cur;
+    }else{
+      st.answers[q.id]=val;
+    }
+    render();
+  }));
   const questionNext=document.getElementById('questionNext');
   if(questionNext)questionNext.addEventListener('click',()=>{
     let next=st.currentQuestion+1;
     while(next<questions.length&&shouldSkipQuestion(questions[next]))next++;
-    if(next<questions.length){st.currentQuestion=next;render();}else navigate('abcde');
+    if(next<questions.length){st.currentQuestion=next;render();}else navigate('consent_location');
   });
-  // ABCDE screen
+  // ABCDE screen (legacy — kept for back-nav compatibility)
   document.querySelectorAll('[data-abcde]').forEach(c=>c.addEventListener('click',()=>{st.abcdeAnswers[c.dataset.abcde]=!st.abcdeAnswers[c.dataset.abcde];render();}));
   // Location consent toggle
   const locToggle=document.getElementById('locationToggle');
