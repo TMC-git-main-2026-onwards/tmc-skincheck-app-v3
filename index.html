@@ -1671,13 +1671,16 @@ function renderHomepage(){
     <text x="110" y="115" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="12" fill="#9a9a9a">out of 100</text>
   </svg>`;
   const aiBadge=p.skinAnalysis?.mst?`<div style="display:inline-flex;align-items:center;gap:6px;background:var(--tmc-teal-light);border:1px solid rgba(46,196,182,.3);border-radius:20px;padding:4px 12px;font-size:12px;color:var(--tmc-teal-dark);font-weight:600;margin-top:8px">&#129504; Skin tone detected by AI</div>`:'';
+  // Resolve partnerInfo from live profile first, then re-derive from registry as fallback
+  // (guards against partnerInfo being missing from an older localStorage entry)
+  const partnerInfo=p.partnerInfo||(p.cohort&&p.cohort!=='consumer'?PARTNERS[p.cohort]:null);
   return`<div class="hp-screen">
-    ${p.partnerInfo?`<div style="background:${p.partnerInfo.brandColor};color:white;text-align:center;padding:8px 20px;font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase">via ${p.partnerInfo.brandName}</div>`:''}
+    ${partnerInfo?`<div style="background:${partnerInfo.brandColor};color:white;text-align:center;padding:8px 20px;font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase">via ${partnerInfo.brandName}</div>`:''}
     <div class="hp-header">
       <div class="hp-logo"><img src="https://themoleclinic.co.uk/wp-content/uploads/2025/02/MoleClinic-Ver-White2.png" alt="The Mole Clinic" style="height:60px;width:auto;display:block;"><button class="hp-reset-link" onclick="resetProfile()">Reset profile</button></div>
       <div class="hp-greeting">${getGreeting()}, ${p.name||'there'}</div>
       <div class="hp-meta">
-        <div class="hp-date">${formatDateLong(new Date())}${p.partnerInfo?` &middot; via ${p.partnerInfo.brandName}`:''}</div>
+        <div class="hp-date">${formatDateLong(new Date())}${partnerInfo?` &middot; via ${partnerInfo.brandName}`:''}</div>
         ${cityDisplay?`<div class="hp-location">&#128205; <span id="hp-city">${cityDisplay}</span></div>`:
           `<div class="hp-location" id="hp-city-wrap" style="display:none">&#128205; <span id="hp-city"></span></div>`}
       </div>
@@ -1874,7 +1877,7 @@ function buildProfile(){
   const serviceRecommendation=getServiceRecommendation(st.answers);
   const cohortResult=detectCohort(st.email,st.inviteCode||'');
   const cohort=cohortResult.cohort||'consumer';
-  const partnerInfo=(cohort&&cohort!=='consumer')?PARTNERS[cohort]:null;
+  const partnerInfo=(cohort!=='consumer'&&PARTNERS[cohort])?PARTNERS[cohort]:null;
   return{
     version:'0.3',name:st.name,email:st.email,postcode:st.postcode,
     inviteCode:st.inviteCode||'',cohort,partnerInfo,
