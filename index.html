@@ -287,6 +287,19 @@ input:checked+.toggle-slider:before{transform:translateX(24px)}
 <body>
 <div id="app"></div>
 <script>
+/*
+ * DEMO NOTES — Partner cohort testing
+ * ---
+ * Two demo partners are configured in the PARTNERS registry below:
+ *   Northwind Travel (corporate)  — domains: northwindtravel.co.uk, northwind.co.uk
+ *                                    invite codes: NORTH2026, NWT-STAFF
+ *   Meridian Health (insurer)     — domains: meridianhealth.co.uk, meridian-health.co.uk
+ *                                    invite codes: MERIDIAN2026, MHI-MEMBER
+ *
+ * To test: on the email screen enter any invite code above in the optional field,
+ * or use a partner domain email address. The co-branded chip and greeting tweak
+ * appear on the dashboard once the profile is built.
+ */
 // ===== DATA =====
 // Monk Skin Tone Scale (Ellis et al., Google / Harvard 2019) — 10 official tones
 // fitzpatrickId maps each MST tone to nearest Fitzpatrick type for internal scoring only
@@ -384,6 +397,40 @@ const abcdeItems=[
   {letter:'D',title:'Diameter',desc:'The mole is larger than 6mm (about the size of a pencil eraser).'},
   {letter:'E',title:'Evolving',desc:'The mole is changing in size, shape, colour, or feel. New symptoms like itching or bleeding.'},
 ];
+// ===== PARTNER COHORT REGISTRY =====
+const PARTNERS = {
+  northwind_travel: {
+    key: 'northwind_travel',
+    brandName: 'Northwind Travel',
+    type: 'corporate',
+    brandColor: '#0066B2',
+    domains: ['northwindtravel.co.uk','northwind.co.uk'],
+    inviteCodes: ['NORTH2026','NWT-STAFF']
+  },
+  meridian_health: {
+    key: 'meridian_health',
+    brandName: 'Meridian Health',
+    type: 'insurer',
+    brandColor: '#7C3AED',
+    domains: ['meridianhealth.co.uk','meridian-health.co.uk'],
+    inviteCodes: ['MERIDIAN2026','MHI-MEMBER']
+  }
+};
+function detectCohort(email, inviteCode) {
+  const code = (inviteCode || '').trim().toUpperCase();
+  if (code) {
+    for (const [key, partner] of Object.entries(PARTNERS)) {
+      if (partner.inviteCodes.map(c => c.toUpperCase()).includes(code)) return key;
+    }
+  }
+  const domain = ((email || '').split('@')[1] || '').toLowerCase();
+  if (domain) {
+    for (const [key, partner] of Object.entries(PARTNERS)) {
+      if (partner.domains.includes(domain)) return key;
+    }
+  }
+  return 'consumer';
+}
 function shouldSkipQuestion(q){
   return false;
 }
@@ -784,7 +831,8 @@ const st={
   answers:{},currentQuestion:0,abcdeAnswers:{},
   consentLocation:false,consentTravel:false,lat:null,lon:null,city:'',country:'',country_code:'',
   riskScore:null,riskLevel:null,
-  profile:null,weatherData:null,currentCity:'',showTravelBanner:false,profileExpanded:false,
+  inviteCode:'',
+  profile:null,weatherData:null,currentCity:'',showTravelBanner:false,profileExpanded:true,
 };
 window.activeCameraStream=null;
 // ===== NAVIGATION =====
@@ -1286,6 +1334,7 @@ function renderEmail(){
         <div class="input-group"><label class="input-label">First name</label><input class="input-field" type="text" id="nameInput" placeholder="Your first name" value="${st.name}" autocomplete="given-name"></div>
         <div class="input-group"><label class="input-label">Email address</label><input class="input-field" type="email" id="emailInput" placeholder="your@email.com" value="${st.email}" autocomplete="email"></div>
         <div class="input-group"><label class="input-label">Postcode</label><input class="input-field" type="text" id="postcodeInput" placeholder="e.g. M1 2AB" value="${st.postcode}" maxlength="8" style="text-transform:uppercase" autocomplete="postal-code"></div>
+        <div class="input-group"><label class="input-label" style="font-weight:500;color:var(--tmc-gray-600)">Partner or invite code <span style="font-weight:400;font-size:12px;color:var(--tmc-gray-400)">(optional)</span></label><input class="input-field" type="text" id="inviteInput" placeholder="e.g. NORTH2026" value="${st.inviteCode||''}" autocomplete="off" style="text-transform:uppercase"></div>
         <p style="font-size:12px;color:var(--tmc-gray-600);margin-top:4px">Your data is processed in accordance with GDPR. We'll never sell your details.</p>
       </div>
     </div>
@@ -1577,11 +1626,12 @@ function renderHomepage(){
   </svg>`;
   const aiBadge=p.skinAnalysis?.mst?`<div style="display:inline-flex;align-items:center;gap:6px;background:var(--tmc-teal-light);border:1px solid rgba(46,196,182,.3);border-radius:20px;padding:4px 12px;font-size:12px;color:var(--tmc-teal-dark);font-weight:600;margin-top:8px">&#129504; Skin tone detected by AI</div>`:'';
   return`<div class="hp-screen">
+    ${p.partnerInfo?`<div style="background:${p.partnerInfo.brandColor};color:white;text-align:center;padding:8px 20px;font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase">via ${p.partnerInfo.brandName}</div>`:''}
     <div class="hp-header">
       <div class="hp-logo"><img src="https://themoleclinic.co.uk/wp-content/uploads/2025/02/MoleClinic-Ver-White2.png" alt="The Mole Clinic" style="height:60px;width:auto;display:block;"><button class="hp-reset-link" onclick="resetProfile()">Reset profile</button></div>
       <div class="hp-greeting">${getGreeting()}, ${p.name||'there'}</div>
       <div class="hp-meta">
-        <div class="hp-date">${formatDateLong(new Date())}</div>
+        <div class="hp-date">${formatDateLong(new Date())}${p.partnerInfo?` &middot; via ${p.partnerInfo.brandName}`:''}</div>
         ${cityDisplay?`<div class="hp-location">&#128205; <span id="hp-city">${cityDisplay}</span></div>`:
           `<div class="hp-location" id="hp-city-wrap" style="display:none">&#128205; <span id="hp-city"></span></div>`}
       </div>
@@ -1776,8 +1826,11 @@ async function initHomepageAsync(){
 // ===== PROFILE MANAGEMENT =====
 function buildProfile(){
   const serviceRecommendation=getServiceRecommendation(st.answers);
+  const cohort=detectCohort(st.email,st.inviteCode||'');
+  const partnerInfo=cohort!=='consumer'?PARTNERS[cohort]:null;
   return{
     version:'0.3',name:st.name,email:st.email,postcode:st.postcode,
+    inviteCode:st.inviteCode||'',cohort,partnerInfo,
     consentData:st.consentData,consentMarketing:st.consentMarketing,
     consentLocation:st.consentLocation,consentTravel:st.consentTravel,
     skinType:st.skinType,skinAnalysis:st.skinAnalysis||null,
@@ -1845,10 +1898,10 @@ function render(){
 // ===== EVENT BINDING =====
 function bindEvents(){
   // Email screen
-  const nameIn=document.getElementById('nameInput'),emailIn=document.getElementById('emailInput'),postIn=document.getElementById('postcodeInput'),emailNext=document.getElementById('emailNext');
+  const nameIn=document.getElementById('nameInput'),emailIn=document.getElementById('emailInput'),postIn=document.getElementById('postcodeInput'),inviteIn=document.getElementById('inviteInput'),emailNext=document.getElementById('emailNext');
   if(nameIn&&emailIn&&postIn&&emailNext){
-    const chk=()=>{st.name=nameIn.value.trim();st.email=emailIn.value.trim();st.postcode=postIn.value.trim();emailNext.disabled=!(st.name&&st.email.includes('@')&&st.email.includes('.')&&st.postcode.length>=2);};
-    nameIn.addEventListener('input',chk);emailIn.addEventListener('input',chk);postIn.addEventListener('input',chk);
+    const chk=()=>{st.name=nameIn.value.trim();st.email=emailIn.value.trim();st.postcode=postIn.value.trim();st.inviteCode=inviteIn?inviteIn.value.trim():'';emailNext.disabled=!(st.name&&st.email.includes('@')&&st.email.includes('.')&&st.postcode.length>=2);};
+    nameIn.addEventListener('input',chk);emailIn.addEventListener('input',chk);postIn.addEventListener('input',chk);if(inviteIn)inviteIn.addEventListener('input',chk);
     emailNext.addEventListener('click',()=>navigate('consent'));chk();
   }
   // Consent screen
