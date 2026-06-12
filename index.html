@@ -388,7 +388,7 @@ const questions=[
       {value:'_abcde_divider',label:'',divider:true},
       {value:'asymmetry',label:'A mole that is asymmetric (one half doesn\'t match the other)'},
       {value:'border',label:'Irregular, ragged or blurred edges on a mole'},
-      {value:'colour',label:'A mole with uneven colour — shades of brown, black, red, white or blue'},
+      {value:'colour',label:'A mole with uneven colour — shades of brown, black, red, white or blue. Melanoma can also be a single uniform colour that stands out as different from your other moles — most commonly black'},
       {value:'diameter',label:'A mole larger than 6mm (about the size of a pencil eraser)'},
       {value:'evolving',label:'A mole that has changed in size, shape, colour or feel'},
       {value:'none',label:'None of the above'}
@@ -411,7 +411,7 @@ const riskNudges={
 const abcdeItems=[
   {letter:'A',title:'Asymmetry',desc:"One half of the mole doesn't match the other half."},
   {letter:'B',title:'Border',desc:'The edges are irregular, ragged, blurred, or notched.'},
-  {letter:'C',title:'Colour',desc:'The colour is not uniform — shades of brown, black, red, white, or blue.'},
+  {letter:'C',title:'Colour',desc:'The colour is not uniform — shades of brown, black, red, white, or blue. Melanoma can also be a single uniform colour that stands out as different from your other moles — most commonly black.'},
   {letter:'D',title:'Diameter',desc:'The mole is larger than 6mm (about the size of a pencil eraser).'},
   {letter:'E',title:'Evolving',desc:'The mole is changing in size, shape, colour, or feel. New symptoms like itching or bleeding.'},
 ];
@@ -1148,7 +1148,7 @@ function renderWelcome(){
       <img src="https://themoleclinic.co.uk/wp-content/uploads/2025/02/MoleClinic-Ver-White2.png" alt="The Mole Clinic" class="welcome-hero-logo" style="height:90px;width:auto;display:block;">
       <h1 class="title-xl">Free Skin<br>Health Check</h1>
       <p class="subtitle">Get your personalised Mole Clinic Profile in minutes. Know your risk. Know your next step.</p>
-      <div class="welcome-stat animate-in-delay-1">&#128300; Over 16,000 people are diagnosed with melanoma in the UK each year.</div>
+      <div class="welcome-stat animate-in-delay-1">&#128300; Over 16,000 people are diagnosed with melanoma skin cancer in the UK each year.</div>
       <div class="welcome-social-proof animate-in-delay-2">Used by patients across The Mole Clinic's UK clinics</div>
     </div>
     <div class="content">
@@ -1579,7 +1579,7 @@ function renderHomepage(){
             </div>
             <div class="svc-tile${tile2Primary?' svc-tile-primary':''}">
               <div class="svc-tile-name">Mole Mapping</div>
-              <div class="svc-tile-desc">Comprehensive digital mapping and monitoring of all moles.</div>
+              <div class="svc-tile-desc">Comprehensive digital mapping and monitoring of all moles — includes a Full Body Skin Check.</div>
               <button class="svc-tile-btn" onclick="openBooking('moleMapping')">Book &#8594;</button>
             </div>
             <div class="svc-tile">
@@ -1588,7 +1588,7 @@ function renderHomepage(){
               <button class="svc-tile-btn" onclick="openBooking('singleMole')">Book &#8594;</button>
             </div>
           </div>
-          <p ${disclaimer}>All services are provided by qualified dermatologists and skin cancer specialists. This tool provides guidance only and does not replace a clinical assessment.</p>
+          <p ${disclaimer}>This tool provides guidance only and does not replace a clinical assessment.</p>
         </div>`;
       })()}
       <div class="hp-section-label" style="margin-top:20px">Book a Check</div>

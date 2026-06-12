@@ -248,7 +248,7 @@ const getServiceRecommendation = (answers) => {
       primary: 'mole_mapping',
       urgency: domainD_trigger ? 'urgent' : 'routine',
       title: 'Mole Mapping',
-      description: 'Based on your mole profile and history, a full Mole Mapping assessment is recommended. This provides a comprehensive baseline record of all your moles and enables accurate monitoring over time.',
+      description: 'Based on your mole profile and history, a full Mole Mapping assessment is recommended. This includes a Full Body Skin Check and provides a comprehensive baseline record of all your moles, enabling accurate monitoring over time.',
       show_fbsc: true, show_mole_mapping: true, show_single_mole: true
     };
   } else if (domainD_trigger) {
