@@ -747,18 +747,20 @@ function getProgress(){
   const idx=screens.indexOf(st.screen);
   return Math.round((Math.max(idx,0)/(screens.length-1))*100);
 }
+// One screen group = one step (step 1b): Details and Consent no longer
+// both claim "STEP 1"
 function getProgressLabel(){
   if(st.screen==='questionnaire'){
     const vis=questions.filter(q=>!shouldSkipQuestion(q));
     const visIdx=vis.findIndex(q=>q.id===questions[st.currentQuestion].id)+1;
-    return`STEP 3 OF 4 — QUESTION ${visIdx} OF ${vis.length}`;
+    return`STEP 4 OF 5 — QUESTION ${visIdx} OF ${vis.length}`;
   }
   const labels={
-    welcome:'',email:'STEP 1 OF 4 — YOUR DETAILS',consent:'STEP 1 OF 4 — PRIVACY &amp; CONSENT',
-    arm_camera:'STEP 2 OF 4 — RIGHT ARM ANALYSIS',
-    q_intro:'STEP 3 OF 4 — YOUR RISK PROFILE',
-    consent_location:'STEP 4 OF 4 — LOCATION',consent_travel:'STEP 4 OF 4 — TRAVEL',
-    consent_notifications:'STEP 4 OF 4 — REMINDERS',loading:'BUILDING YOUR PROFILE…',
+    welcome:'',email:'STEP 1 OF 5 — YOUR DETAILS',consent:'STEP 2 OF 5 — PRIVACY &amp; CONSENT',
+    arm_camera:'STEP 3 OF 5 — RIGHT ARM ANALYSIS',
+    q_intro:'STEP 4 OF 5 — YOUR RISK PROFILE',
+    consent_location:'STEP 5 OF 5 — LOCATION',consent_travel:'STEP 5 OF 5 — TRAVEL',
+    consent_notifications:'STEP 5 OF 5 — REMINDERS',loading:'BUILDING YOUR PROFILE…',
   };
   return labels[st.screen]||'';
 }
@@ -766,7 +768,12 @@ function renderFooter(){return`<div class="screen-footer">Powered by <a href="#"
 function renderHeader(showBack=true){
   if(st.screen==='welcome'||st.screen==='homepage')return'';
   const micro=['questionnaire','arm_camera','abcde'].includes(st.screen);
-  const microMsg=['Great start — just a few more questions',"You're halfway there",'Your profile is taking shape','Nearly done — almost ready'][Math.floor(getProgress()/26)%4]||'';
+  // Microcopy tied to actual progress (step 1b) — "halfway" only past the midpoint
+  const pct=getProgress();
+  const microMsg=pct>=85?'Nearly done — almost ready'
+    :pct>=60?'Your profile is taking shape'
+    :pct>=50?"You're halfway there"
+    :'Great start — just a few more questions';
   return`<div class="header">
     ${showBack?'<button class="header-back" onclick="goBack()">&#8592;</button>':'<div style="width:44px"></div>'}
     <div style="flex:1;text-align:center"><img src="https://themoleclinic.co.uk/wp-content/uploads/2025/02/MoleClinic-Ver-White2.png" alt="The Mole Clinic" style="height:32px;width:auto;"></div>
