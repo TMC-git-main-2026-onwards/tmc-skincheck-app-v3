@@ -1847,6 +1847,14 @@ function renderHomepage(){
         <div id="nearest-clinic-block"></div>
         ${(()=>{const rec=p.serviceRecommendation||getServiceRecommendation(p.answers,p.cumulativeUVLevel);const key=bookingKeyForRec(rec);return rec.urgency==='urgent'?`<div class="urgent-notice">Based on your answers, we recommend booking as soon as possible.</div><button class="book-btn-urgent" onclick="openBooking('${key}')">Book at The Mole Clinic &#8594;</button>`:`<button class="book-btn-hp" onclick="openBooking('${key}')">Book at The Mole Clinic &#8594;</button>`;})()}
       </div>
+      <div class="card" style="margin-top:12px;text-align:center">
+        <p style="font-size:14px;color:var(--tmc-navy);font-weight:600">Not ready to book yet?</p>
+        <p style="font-size:13px;color:var(--tmc-gray-600);margin-top:4px;line-height:1.5">That's fine — your results are saved on this device.</p>
+        <div style="display:flex;gap:10px;margin-top:12px">
+          <button class="btn-secondary" style="flex:1;padding:11px 12px;font-size:14px" onclick="emailResultsDraft()">Email me my results</button>
+          <button class="btn-ghost" style="flex:1" onclick="doneForNow()">Done for now</button>
+        </div>
+      </div>
       <div style="margin-top:20px">
         <div class="collapsible-header" onclick="toggleMethodology()">
           <div class="collapsible-title">&#128218; Methodology &amp; References</div>
@@ -1999,6 +2007,39 @@ function startLoadingMessages(){
   },900);
 }
 function dismissTravelBanner(){setTravelDismissed();st.showTravelBanner=false;const b=document.querySelector('.travel-banner');if(b)b.remove();}
+// "Not ready to book" exit path (feedback 1.7) — no guilt-trip copy.
+// TODO: replace the mailto draft with a proper server-side send once a
+// backend exists; there is no backend in v0.4.
+function emailResultsDraft(){
+  const p=st.profile;if(!p)return;
+  const rec=p.serviceRecommendation||getServiceRecommendation(p.answers,p.cumulativeUVLevel);
+  const factors=getKeyRiskFactorBullets(p.answers,p.skinType,p.abcdeAnswers);
+  const overall=p.overallRiskLevel||p.riskLevel;
+  const lines=[
+    'TMC SkinCheck — your results summary',
+    `Date: ${formatDateLong(new Date())}`,
+    p.name?`Name: ${p.name}`:null,
+    p.campaignCode?`Campaign code: ${p.campaignCode}`:null,
+    '',
+    `Overall risk category: ${overall}`,
+    p.cumulativeUVLevel?`- Melanoma pathway: ${p.riskLevel}`:null,
+    p.cumulativeUVLevel?`- Lifetime (cumulative) UV: ${p.cumulativeUVLevel}`:null,
+    '',
+    'Key factors:',
+    ...factors.map(f=>`- ${f}`),
+    '',
+    `Recommended service: ${rec.title}`,
+    `Recommended check frequency: ${getCheckFrequency(overall)}`,
+    `Book online: ${BOOK_URLS[bookingKeyForRec(rec)]}`,
+    '',
+    'This is a risk category based on your answers — not a probability of developing skin cancer, and not a medical diagnosis.',
+  ].filter(l=>l!=null);
+  window.location.href=`mailto:${encodeURIComponent(p.email||'')}?subject=${encodeURIComponent('Your TMC SkinCheck results')}&body=${encodeURIComponent(lines.join('\n'))}`;
+}
+function doneForNow(){
+  window.scrollTo({top:0,behavior:'smooth'});
+  showToast('Your results are saved on this device.');
+}
 function showPostcodeUVError(p){
   const loadEl=document.getElementById('hp-uv-loading'),dataEl=document.getElementById('hp-uv-data');
   if(loadEl)loadEl.style.display='none';
