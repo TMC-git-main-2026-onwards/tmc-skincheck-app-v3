@@ -282,35 +282,52 @@ input:checked+.toggle-slider:before{transform:translateX(24px)}
 .book-btn-urgent:hover{background:#d97706}
 .urgent-notice{background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.5);border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;color:#92400e;font-weight:500;margin-bottom:12px}
 .q-intro-screen{background:var(--tmc-navy);flex:1;padding:32px 24px 100px}
+.clinic-expander-toggle{background:none;border:none;color:rgba(255,255,255,.75);font-family:var(--font-body);font-size:13px;font-weight:600;cursor:pointer;padding:8px 0;text-decoration:underline}
+.clinic-list-body{display:none;margin:4px 0 10px;max-height:260px;overflow-y:auto}
+.clinic-list-body.open{display:block}
+.clinic-list-row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.1);font-size:13px}
+.clinic-list-row:last-child{border-bottom:none}
+.clinic-list-name{color:white;font-weight:600}
+.clinic-list-addr{color:rgba(255,255,255,.6);font-size:11px;margin-top:2px;line-height:1.4}
+.clinic-list-dist{color:var(--tmc-gold);font-weight:600;white-space:nowrap;flex-shrink:0}
+.band-indicator{display:flex;gap:6px;margin:10px 0 4px}
+.band-seg{flex:1;text-align:center;padding:12px 4px;border-radius:var(--radius-sm);font-size:10px;font-weight:700;letter-spacing:.4px;background:var(--tmc-gray-100);color:var(--tmc-gray-400);border:2px solid transparent;line-height:1.3}
+.band-seg.band-low{background:#e8f5e9;color:#2e7d32;border-color:#2e7d32}
+.band-seg.band-moderate{background:#fff3e0;color:#e65100;border-color:#e65100}
+.band-seg.band-high{background:#fce4ec;color:#c62828;border-color:#c62828}
+.band-seg.band-veryhigh{background:#f3e5f5;color:#6a1b9a;border-color:#6a1b9a}
+.band-category-note{font-size:12px;color:var(--tmc-gray-600);line-height:1.5;margin-top:10px;text-align:center;font-style:italic}
 </style>
 </head>
 <body>
 <div id="app"></div>
+<script src="logic.js"></script>
 <script>
 /*
- * DEMO NOTES — Partner cohort testing
- * =====================================
- * STRICT VALIDATION: Both email domain AND invite code must match the same partner.
- * Neither alone is sufficient.
+ * CAMPAIGN CODES — B2B / occupational-health deployment (feedback 1.13)
+ * =====================================================================
+ * The campaign code is ADDITIVE, never a gate. Any alphanumeric code is
+ * accepted, stored as profile.campaignCode and stamped on the saved
+ * result and emailed summary so a future phase can aggregate
+ * de-identified outcomes per employer/event. No code -> exact consumer
+ * flow. Results never leave the device in this version; if aggregate
+ * employer reporting is added later, the lawful basis and privacy
+ * wording must be revisited against the TMC Privacy Policy.
  *
- * NORTHWIND TRAVEL (corporate demo):
- *   Email:       anyone@northwindtravel.co.uk
- *   Invite code: NORTHWIND  (also: NORTH2026, NWT-STAFF)
- *   Result:      Blue banner · "via Northwind Travel"
+ * Codes that match a known partner additionally apply co-branding:
+ *   NORTHWIND / NORTH2026 / NWT-STAFF      -> Northwind Travel (blue)
+ *   MERIDIAN / MERIDIAN2026 / MHI-MEMBER   -> Meridian Health (purple)
  *
- * MERIDIAN HEALTH (insurer demo):
- *   Email:       anyone@meridianhealth.co.uk
- *   Invite code: MERIDIAN  (also: MERIDIAN2026, MHI-MEMBER)
- *   Result:      Purple banner · "via Meridian Health"
- *
- * CONSUMER (standard flow):
- *   Email:       any personal email — leave invite code blank
- *   Result:      No partner branding
- *
- * BLOCKED SCENARIOS (demo these to show access control):
- *   Personal email + partner code  → "Please use your work email with this invite code."
- *   Company email  + no code       → "It looks like you're using a company email address. Please also enter your invite code."
+ * PARTNER_GATE_MODE (demo flag, default false):
+ * Production stays additive/never-gated per feedback 1.13. Setting the
+ * flag to true restores the strict partner demo: email domain AND
+ * campaign/invite code must match the SAME partner — neither alone is
+ * sufficient — with error messages for mismatched access attempts:
+ *   Personal email + partner code -> "use your work email with this code"
+ *   Company email  + no code      -> "please also enter your invite code"
+ * See docs/b2b-roadmap.md for how to enable it.
  */
+const PARTNER_GATE_MODE = false;
 // ===== DATA =====
 // Monk Skin Tone Scale (Ellis et al., Google / Harvard 2019) — 10 official tones
 // fitzpatrickId maps each MST tone to nearest Fitzpatrick type for internal scoring only
@@ -321,8 +338,10 @@ const skinTypes=[
   {id:7,color:'#825c43',fitzpatrickId:5,score:1},{id:8,color:'#604134',fitzpatrickId:5,score:1},
   {id:9,color:'#3a312a',fitzpatrickId:6,score:0},{id:10,color:'#15120e',fitzpatrickId:6,score:0},
 ];
-// Questionnaire — 14 questions across 5 clinical domains
-// Question set authored by Annie Meharg and Anna Grodent (TMC clinical/compliance)
+// Questionnaire — validated set authored by Annie Meharg and Anna Grodent
+// (TMC clinical/compliance) across 5 clinical domains, plus the two
+// sanctioned "Lifetime sun exposure" additions for the cumulative UV
+// dimension (feedback 1.11). Do not alter or reweight the validated items.
 const questions=[
   {id:'age',question:'What is your age range?',options:[
     {value:'under25',label:'Under 25'},{value:'25-34',label:'25–34'},
@@ -358,9 +377,26 @@ const questions=[
     {value:'yes',label:'Yes'},{value:'no',label:'No'},{value:'not_sure',label:"I'm not sure"}]},
   {id:'sunbed_use',question:'Have you ever used tanning beds or sunbeds, especially before the age of 35?',options:[
     {value:'yes',label:'Yes'},{value:'no',label:'No'}]},
-  {id:'new_changing_lesion',question:'Have you noticed a new or changing mark, a persistent spot, or an area of skin that looks or feels different?',options:[
+  // LIFETIME SUN EXPOSURE — cumulative/chronic pathway (feedback 1.11).
+  // These two questions feed calculateCumulativeUVScore ONLY. They are the
+  // sanctioned additions and do not alter or reweight the validated
+  // melanoma question set above.
+  {id:'outdoor_work',
+    section_heading:'LIFETIME SUN EXPOSURE — Everyday sun exposure builds up over a lifetime, even without sunburn',
+    question:'Have you ever worked outdoors for a substantial part of your working life (e.g. construction, farming, grounds or landscaping, transport, sport or leisure instruction)?',
+    options:[
+      {value:'no',label:'No'},
+      {value:'under5',label:'Yes, under 5 years'},
+      {value:'5to15',label:'Yes, 5–15 years'},
+      {value:'over15',label:'Yes, more than 15 years'}]},
+  {id:'sunny_climate',question:'Have you lived for a year or more in a country with a hot, sunny climate (e.g. Australia, southern Europe, Africa, the Middle East, parts of Asia or the Americas)?',
+    options:[
+      {value:'no',label:'No'},
+      {value:'up_to_5',label:'Yes, up to 5 years'},
+      {value:'over_5',label:'Yes, more than 5 years'}]},
+  {id:'new_changing_lesion',education:true,question:'Have you noticed a new or changing mark, a persistent spot, or an area of skin that looks or feels different?',options:[
     {value:'yes',label:'Yes'},{value:'no',label:'No'},{value:'not_sure',label:"I'm not sure"}]},
-  {id:'lesion_symptoms',
+  {id:'lesion_symptoms',education:true,
     question:'Have you noticed any of the following in a mark, spot, or area on your skin?',
     instruction:'Select all that apply',
     multiselect:true,
@@ -372,7 +408,7 @@ const questions=[
       {value:'_abcde_divider',label:'',divider:true},
       {value:'asymmetry',label:'A mole that is asymmetric (one half doesn\'t match the other)'},
       {value:'border',label:'Irregular, ragged or blurred edges on a mole'},
-      {value:'colour',label:'A mole with uneven colour — shades of brown, black, red, white or blue'},
+      {value:'colour',label:'A mole with uneven colour — shades of brown, black, red, white or blue. Melanoma can also be a single uniform colour that stands out as different from your other moles — most commonly black'},
       {value:'diameter',label:'A mole larger than 6mm (about the size of a pencil eraser)'},
       {value:'evolving',label:'A mole that has changed in size, shape, colour or feel'},
       {value:'none',label:'None of the above'}
@@ -391,20 +427,11 @@ const riskNudges={
   family_melanoma_history:{yes:'Family history of melanoma is one of the strongest risk indicators. Regular professional checks are especially important.'},
   sunbed_use:{yes:'Sunbed use significantly increases skin cancer risk (WHO Group 1 carcinogen). A professional baseline check is recommended.'}
 };
-const clinics=[
-  {name:'London Marylebone',postcodes:['W1','NW','WC'],bookUrl:'https://www.themoleclinic.co.uk/book'},
-  {name:'London City',postcodes:['EC','E1','E2'],bookUrl:'https://www.themoleclinic.co.uk/book'},
-  {name:'London Chelsea',postcodes:['SW','KT','TW'],bookUrl:'https://www.themoleclinic.co.uk/book'},
-  {name:'London Canary Wharf',postcodes:['E14','E'],bookUrl:'https://www.themoleclinic.co.uk/book'},
-  {name:'Manchester',postcodes:['M','WA','SK','OL','BL','WN'],bookUrl:'https://www.themoleclinic.co.uk/book'},
-  {name:'Leeds',postcodes:['LS','BD','HG','WF','HX','HD'],bookUrl:'https://www.themoleclinic.co.uk/book'},
-  {name:'Bristol',postcodes:['BS','BA','GL','SN'],bookUrl:'https://www.themoleclinic.co.uk/book'},
-  {name:'Birmingham',postcodes:['B','WS','DY','WV','CV'],bookUrl:'https://www.themoleclinic.co.uk/book'},
-];
+// clinics data + getNearestClinics now live in logic.js
 const abcdeItems=[
   {letter:'A',title:'Asymmetry',desc:"One half of the mole doesn't match the other half."},
   {letter:'B',title:'Border',desc:'The edges are irregular, ragged, blurred, or notched.'},
-  {letter:'C',title:'Colour',desc:'The colour is not uniform — shades of brown, black, red, white, or blue.'},
+  {letter:'C',title:'Colour',desc:'The colour is not uniform — shades of brown, black, red, white, or blue. Melanoma can also be a single uniform colour that stands out as different from your other moles — most commonly black.'},
   {letter:'D',title:'Diameter',desc:'The mole is larger than 6mm (about the size of a pencil eraser).'},
   {letter:'E',title:'Evolving',desc:'The mole is changing in size, shape, colour, or feel. New symptoms like itching or bleeding.'},
 ];
@@ -427,20 +454,33 @@ const PARTNERS = {
     inviteCodes: ['MERIDIAN2026','MHI-MEMBER','MERIDIAN']
   }
 };
+// Loose validation only (feedback 1.13): letters, digits, spaces, hyphens,
+// underscores, up to 32 chars. An empty code is always fine.
+const validateCampaignCode = (code) => {
+  const c = (code || '').trim();
+  return !c || /^[A-Za-z0-9][A-Za-z0-9 _-]{0,31}$/.test(c);
+};
+// A campaign code that matches a known partner applies co-branding.
+// Unknown codes are still accepted — the code is never a gate (default mode).
+const detectPartnerFromCode = (code) => {
+  const c = (code || '').trim().toUpperCase();
+  if (!c) return null;
+  for (const [key, partner] of Object.entries(PARTNERS)) {
+    if (partner.inviteCodes.some(ic => ic.toUpperCase() === c)) return key;
+  }
+  return null;
+};
 /*
- * detectCohort — STRICT mode.
- * Both email domain AND invite code must match the SAME partner.
+ * detectCohortStrict — used ONLY when PARTNER_GATE_MODE is true.
+ * Both email domain AND campaign/invite code must match the SAME partner.
  * Neither alone is sufficient.
  * Returns: { cohort, valid, errorType?, error? }
  */
-const detectCohort = (email, inviteCode) => {
-  const code = (inviteCode || '').trim().toUpperCase();
+const detectCohortStrict = (email, code) => {
+  const c = (code || '').trim().toUpperCase();
   const domain = (((email || '').split('@')[1]) || '').toLowerCase().trim();
 
-  let codePartnerKey = null;
-  for (const [key, partner] of Object.entries(PARTNERS)) {
-    if (code && partner.inviteCodes.some(c => c.toUpperCase() === code)) { codePartnerKey = key; break; }
-  }
+  const codePartnerKey = detectPartnerFromCode(c);
 
   let domainPartnerKey = null;
   for (const [key, partner] of Object.entries(PARTNERS)) {
@@ -467,8 +507,8 @@ const detectCohort = (email, inviteCode) => {
 const showDetailsError = (message) => {
   const existing = document.getElementById('cohortError');
   if (existing) existing.remove();
-  const inviteInput = document.getElementById('inviteInput');
-  const container = inviteInput ? inviteInput.closest('.input-group') : null;
+  const campaignInput = document.getElementById('campaignInput');
+  const container = campaignInput ? campaignInput.closest('.input-group') : null;
   const errorEl = document.createElement('div');
   errorEl.id = 'cohortError';
   errorEl.style.cssText = 'background:#FEF2F2;border:1px solid #FECACA;border-radius:10px;padding:12px 16px;margin-top:8px;display:flex;align-items:flex-start;gap:10px;';
@@ -489,38 +529,15 @@ function getTravelDismissed(){try{return parseInt(localStorage.getItem('tmcTrave
 function setTravelDismissed(){try{localStorage.setItem('tmcTravelBannerDismissed',Date.now().toString())}catch(e){}}
 function clearProfile(){try{localStorage.removeItem('tmcProfile')}catch(e){}}
 // ===== UV & WEATHER LOGIC =====
-// EADO (European Association of Dermato-Oncology) UV Protection Scale
-function getUVBand(uv){
-  if(uv<=2)return{level:'LOW',color:'#4caf50',bg:'#e8f5e9',text:'#2e7d32'};
-  if(uv<=5)return{level:'MODERATE',color:'#ffb300',bg:'#fff8e1',text:'#f57f17'};
-  if(uv<=7)return{level:'HIGH',color:'#ff7043',bg:'#fff3e0',text:'#bf360c'};
-  if(uv<=10)return{level:'VERY HIGH',color:'#e53935',bg:'#ffebee',text:'#b71c1c'};
-  return{level:'EXTREME',color:'#8e24aa',bg:'#f3e5f5',text:'#4a148c'};
-}
-// Bias-corrected SPF recommendation per Gadare et al., MIT 2026 debiasing principle:
-// Monk tones 1-3 (lightest): move one EADO protection level up
-// Monk tones 7-10 (darker): standard EADO + equality note
-function getPersonalisedSPF(uv,monkTone){
-  const levels=[
-    {spf:null,msg:'No protection required'},
-    {spf:'30+',msg:'SPF 30+, hat, and sunglasses'},
-    {spf:'30–50',msg:'SPF 30–50, seek shade at solar noon'},
-    {spf:'50+',msg:'SPF 50+, avoid solar noon, cover up'},
-    {spf:'50+',msg:'SPF 50+, stay indoors at solar noon'},
-  ];
-  let idx=uv<=2?0:uv<=5?1:uv<=7?2:uv<=10?3:4;
-  let note=null;
-  if(monkTone<=3)idx=Math.min(idx+1,4);
-  if(monkTone>=7)note='Darker skin tones have lower natural SPF but equal melanoma risk — do not rely on skin tone as protection. Use stated SPF.';
-  return{...levels[idx],note};
-}
+// getUVBand + getPersonalisedSPF now live in logic.js
 // UV gauge SVG — half-circle arc with EADO-coloured band segments and needle
 function renderUVGaugeSVG(uv){
   const cx=110,cy=100,r=88,sw=14;
   const d2r=d=>d*Math.PI/180;
   const pt=(a,rad)=>[cx+rad*Math.cos(d2r(a)),cy-rad*Math.sin(d2r(a))];
   const seg=(a1,a2,col)=>{const[x1,y1]=pt(a1,r),[x2,y2]=pt(a2,r);return`<path d="M${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r} 0 0 1 ${x2.toFixed(1)},${y2.toFixed(1)}" stroke="${col}" stroke-width="${sw}" fill="none" stroke-linecap="butt"/>`;};
-  const uvN=Math.min(Math.max(uv||0,0),12);
+  // Needle uses the same rounded UV value the UI displays (feedback 1.2)
+  const uvN=Math.min(Math.max(Math.round(uv||0),0),12);
   const na=180-(uvN/12)*180;
   const[nx,ny]=pt(na,74);
   return`<svg viewBox="0 0 220 105" width="220" height="105" xmlns="http://www.w3.org/2000/svg">
@@ -599,215 +616,24 @@ function shouldShowTravelBanner(){
   return(Date.now()-dismissed)>(30*24*60*60*1000);
 }
 // ===== RISK CALCULATIONS =====
-/*
- * RISK SCORING MODEL — TMC Skin Check App v0.3
- * Based on published melanoma epidemiology literature.
- * Each weight reflects relative risk contribution from peer-reviewed sources.
- * This is a risk STRATIFICATION tool, not a diagnostic instrument.
- */
-const calculateRiskScore = (answers, abcdeAnswers, skinType, skinAnalysis) => {
-  let score = 0;
-
-  // ── AGE ──────────────────────────────────────────────────────────────
-  // Source: Cancer Research UK. Melanoma incidence by age. Peak incidence 55-64.
-  const ageScores = {'under25':2,'25-34':5,'35-44':10,'45-54':16,'55-64':20,'65plus':22};
-  score += ageScores[answers.age] || 0;
-
-  // ── PERSONAL SKIN CANCER HISTORY ─────────────────────────────────────
-  // Bradford et al. (2010). JNCI. Previous melanoma: RR 8.5 for second primary.
-  // NMSC lower recurrence risk than melanoma.
-  const personalScores = {'yes_melanoma':20,'yes_nmsc':8,'no':0};
-  score += personalScores[answers.personal_skin_cancer_history] || 0;
-
-  // ── FAMILY MELANOMA HISTORY ──────────────────────────────────────────
-  // Gandini et al. (2005). First-degree relative with melanoma: RR 2.24.
-  const familyScores = {'yes':18,'no':0,'not_sure':3};
-  score += familyScores[answers.family_melanoma_history] || 0;
-
-  // ── SUNBURN HISTORY ──────────────────────────────────────────────────
-  // Gandini et al. (2005). Repeated/severe burns: RR ~1.68.
-  const sunburnScores = {'yes':12,'no':0,'not_sure':2};
-  score += sunburnScores[answers.sunburn_history] || 0;
-
-  // ── SUN DAMAGE VISIBLE ───────────────────────────────────────────────
-  // Direct evidence of cumulative UV damage on skin.
-  const sunDamageScores = {'yes':8,'no':0,'not_sure':2};
-  score += sunDamageScores[answers.sun_damage_visible] || 0;
-
-  // ── LONGTERM SUN EXPOSURE ────────────────────────────────────────────
-  // Gandini et al. (2005). Occupational/recreational cumulative UV.
-  const longtermScores = {'yes':8,'no':0};
-  score += longtermScores[answers.longterm_sun_exposure] || 0;
-
-  // ── SUNBED USE ───────────────────────────────────────────────────────
-  // IARC Working Group (2006). Lancet Oncology. Use before 35: RR 1.75. WHO Group 1 carcinogen.
-  const sunbedScores = {'yes':14,'no':0};
-  score += sunbedScores[answers.sunbed_use] || 0;
-
-  // ── MOLE / FRECKLE PROFILE ───────────────────────────────────────────
-  // Tucker et al. (1997). 50+ moles: RR 4.8 vs fewer than 15.
-  // Freckles indicate UV sensitivity (Gandini 2005).
-  const moleProfileScores = {
-    'very_few_moles_few_freckles': 0,
-    'very_few_moles_many_freckles': 3,
-    'some_moles': 6,
-    'lots_of_moles': 14
-  };
-  score += moleProfileScores[answers.mole_freckle_profile] || 0;
-
-  // Arm AI mole count adds bonus if reliable and high
-  if (skinAnalysis && skinAnalysis.confidence !== 'low' &&
-      skinAnalysis.moleCount !== -1 && skinAnalysis.moleCountCategory) {
-    const catBoost = {'11plus':8,'7to10':2};
-    score += catBoost[skinAnalysis.moleCountCategory] || 0;
-  }
-
-  // ── MOLE APPEARANCE ──────────────────────────────────────────────────
-  // Atypical/dysplastic naevi: significant independent risk factor.
-  const moleAppScores = {'yes':14,'no':0,'no_moles':0,'not_sure':4};
-  score += moleAppScores[answers.mole_appearance] || 0;
-
-  // ── NEW / CHANGING LESION ────────────────────────────────────────────
-  // NHS/NICE: evolving or new lesion is primary warning sign.
-  const newLesionScores = {'yes':18,'no':0,'not_sure':5};
-  score += newLesionScores[answers.new_changing_lesion] || 0;
-
-  // ── LESION SYMPTOMS + ABCDE (merged multi-select) ────────────────────
-  // Friedman et al. (1985). ABCDE criteria compound risk.
-  // Symptoms (bleeding/itching/crusting) count alongside ABCDE criteria.
-  const symptoms = answers.lesion_symptoms;
-  if (Array.isArray(symptoms) && symptoms.length > 0 && !symptoms.includes('none')) {
-    const criteriaCount = symptoms.filter(s => s !== 'none').length;
-    if (criteriaCount === 1) score += 8;
-    else if (criteriaCount === 2) score += 14;
-    else if (criteriaCount === 3) score += 18;
-    else if (criteriaCount >= 4) score += 22;
-  }
-
-  // ── IMMUNE SYSTEM ─────────────────────────────────────────────────────
-  // Grulich et al. (2007). Lancet. Immunosuppression RR 3.4 for melanoma.
-  const immuneScores = {'yes':12,'no':0,'not_sure':3};
-  score += immuneScores[answers.immune_system] || 0;
-
-  // ── REASON FOR VISIT ─────────────────────────────────────────────────
-  const visitScores = {'specific_concern':6,'routine':0,'general_concern':2,'family_advice':3};
-  score += visitScores[answers.reason_for_visit] || 0;
-
-  // ── SELF CHECK CONFIDENCE ────────────────────────────────────────────
-  // Harder to self-monitor = higher missed-change risk.
-  const selfCheckScores = {'confident':0,'difficult':3,'dont_check':6,'no_moles':0};
-  score += selfCheckScores[answers.self_check_confidence] || 0;
-
-  // ── SKIN TYPE ADJUSTMENT (MONK SCALE, SILENT) ────────────────────────
-  // Gandini et al. (2005). Fitzpatrick I-II (very fair): RR 2.09.
-  // We do NOT reduce score for darker tones — melanoma is equally deadly
-  // across skin tones but diagnosed later in darker skin (Gadare et al. 2026).
-  const monkTone = skinType || (skinAnalysis && skinAnalysis.monkTone);
-  if (monkTone) {
-    if (monkTone <= 2) score += 8;
-    else if (monkTone <= 4) score += 4;
-  }
-
-  return Math.min(100, Math.max(0, Math.round(score)));
-};
-// Thresholds calibrated to approximate population percentiles
-// from melanoma risk stratification literature.
-const getRiskLevel = (score) => {
-  if (score >= 70) return 'VERY HIGH';
-  if (score >= 45) return 'HIGH';
-  if (score >= 25) return 'MODERATE';
-  return 'LOW';
-};
-function getCheckFrequency(level){
-  const f={
-    'LOW':'Every 2 years',
-    'MODERATE':'Annually',
-    'HIGH':'Every 6 months',
-    'VERY HIGH':'See a dermatologist urgently — do not wait for a routine appointment'
-  };
-  return f[level]||'Annually';
-}
-function getRecommendedService(riskLevel,changingMoles){
-  if(riskLevel==='VERY HIGH'||riskLevel==='HIGH'||changingMoles==='yes_multiple')
-    return{name:'Full Body Mole Check',desc:'Comprehensive head-to-toe examination by a consultant dermatologist using advanced dermoscopy. Every mole mapped, measured, and assessed.',price:'from £250'};
-  if(riskLevel==='MODERATE'||changingMoles==='yes_one')
-    return{name:'Targeted Mole Check',desc:'Focused examination of specific moles or areas of concern using dermoscopy. Ideal if you have particular moles you\'re worried about.',price:'from £150'};
-  return{name:'Skin Health Screen',desc:'A professional baseline assessment to establish your skin health profile and set up ongoing monitoring. Perfect for peace of mind.',price:'from £100'};
-}
-const getServiceRecommendation = (answers) => {
-  const domainA_trigger =
-    answers.mole_appearance === 'yes' ||
-    answers.mole_freckle_profile === 'lots_of_moles' ||
-    answers.personal_skin_cancer_history === 'yes_melanoma' ||
-    answers.family_melanoma_history === 'yes';
-
-  const symptoms = answers.lesion_symptoms || [];
-  const hasSymptoms = Array.isArray(symptoms)
-    ? symptoms.some(s => ['bleeding','itching','crusting'].includes(s))
-    : false;
-  const hasABCDE = Array.isArray(symptoms)
-    ? symptoms.some(s => ['asymmetry','border','colour','diameter','evolving'].includes(s))
-    : false;
-  const domainD_trigger =
-    answers.new_changing_lesion === 'yes' ||
-    hasSymptoms ||
-    hasABCDE ||
-    answers.reason_for_visit === 'specific_concern';
-
-  const domainC_trigger =
-    answers.sun_damage_visible === 'yes' ||
-    answers.longterm_sun_exposure === 'yes' ||
-    answers.sunburn_history === 'yes' ||
-    answers.sunbed_use === 'yes' ||
-    answers.immune_system === 'yes' ||
-    answers.personal_skin_cancer_history === 'yes_nmsc';
-
-  if (domainA_trigger) {
-    return {
-      primary: 'mole_mapping',
-      urgency: domainD_trigger ? 'urgent' : 'routine',
-      title: 'Mole Mapping',
-      description: 'Based on your mole profile and history, a full Mole Mapping assessment is recommended. This provides a comprehensive baseline record of all your moles and enables accurate monitoring over time.',
-      show_fbsc: true, show_mole_mapping: true, show_single_mole: true
-    };
-  } else if (domainD_trigger) {
-    return {
-      primary: 'fbsc_urgent',
-      urgency: 'urgent',
-      title: 'Full Body Skin Check',
-      description: "You've described a new, changing or symptomatic area of skin. We recommend booking a Full Body Skin Check as soon as possible so a specialist can assess it properly. Please do not wait.",
-      show_fbsc: true, show_mole_mapping: true, show_single_mole: true
-    };
-  } else if (domainC_trigger) {
-    return {
-      primary: 'fbsc',
-      urgency: 'routine',
-      title: 'Full Body Skin Check',
-      description: 'Your sun exposure history means a professional Full Body Skin Check is the most appropriate next step. Skin cancers related to UV damage can appear anywhere on the body and may not look like a mole.',
-      show_fbsc: true, show_mole_mapping: true, show_single_mole: true
-    };
-  } else {
-    return {
-      primary: 'fbsc',
-      urgency: 'routine',
-      title: 'Full Body Skin Check',
-      description: 'A Full Body Skin Check is appropriate for everyone, regardless of skin type or mole count. It gives you a professional baseline and peace of mind.',
-      show_fbsc: true, show_mole_mapping: true, show_single_mole: true
-    };
-  }
-};
-function getNearestClinics(postcode){
-  const pc=(postcode||'').toUpperCase().replace(/\s/g,'');
-  return clinics.map(c=>({...c,score:c.postcodes.reduce((best,p)=>pc.startsWith(p)?Math.max(best,p.length):best,0)})).sort((a,b)=>b.score-a.score);
-}
+// calculateRiskScore, getRiskLevel, getCheckFrequency and
+// getServiceRecommendation now live in logic.js
+// Bullets are labelled by pathway where exposure-related (feedback 1.11):
+// "Intermittent exposure" = melanoma pathway, "Cumulative sun exposure" =
+// chronic/keratinocyte pathway, so the two-dimension result reads coherently
 function getKeyRiskFactorBullets(answers,skinType,abcdeAnswers){
   const b=[];
+  if(answers.new_changing_lesion==='yes')b.push('New or changing skin lesion noted');
   if(answers.family_melanoma_history==='yes')b.push('Family history of melanoma');
   if(answers.personal_skin_cancer_history==='yes_melanoma')b.push('Previous melanoma diagnosis');
-  else if(answers.personal_skin_cancer_history==='yes_nmsc')b.push('Previous non-melanoma skin cancer');
-  if(answers.sunburn_history==='yes')b.push('Significant sunburn history');
-  if(answers.sunbed_use==='yes')b.push('Sunbed use');
-  if(answers.new_changing_lesion==='yes')b.push('New or changing skin lesion noted');
+  else if(answers.personal_skin_cancer_history==='yes_nmsc')b.push('Cumulative sun exposure: previous non-melanoma skin cancer');
+  if(answers.sunburn_history==='yes')b.push('Intermittent exposure: history of repeated or severe sunburn');
+  if(answers.sunbed_use==='yes')b.push('Intermittent exposure: sunbed use');
+  const owLabels={under5:'under 5 years',['5to15']:'5–15 years',over15:'more than 15 years'};
+  if(owLabels[answers.outdoor_work])b.push(`Cumulative sun exposure: ${owLabels[answers.outdoor_work]} of outdoor work`);
+  const scLabels={up_to_5:'up to 5 years',over_5:'more than 5 years'};
+  if(scLabels[answers.sunny_climate])b.push(`Cumulative sun exposure: ${scLabels[answers.sunny_climate]} living in a high-UV climate`);
+  if(answers.sun_damage_visible==='yes')b.push('Cumulative sun exposure: visible sun damage on skin');
   if(answers.mole_freckle_profile==='lots_of_moles')b.push('High mole count');
   if(answers.mole_appearance==='yes')b.push('Moles that look noticeably different from others');
   const syms=answers.lesion_symptoms;
@@ -819,18 +645,28 @@ function getKeyRiskFactorBullets(answers,skinType,abcdeAnswers){
   }
   if(skinType<=2)b.push('Very fair skin — highest UV sensitivity');
   if(b.length===0)b.push('No major risk factors identified in your profile');
-  return b.slice(0,5);
+  return b.slice(0,6);
 }
 function generateRecommendations(profile,wd){
   const recs=[];
-  const{answers,skinType,riskLevel}=profile;
+  const{answers,skinType}=profile;
+  const riskLevel=profile.overallRiskLevel||profile.riskLevel;
   const uv=wd&&wd.uv!=null?wd.uv:null;
   const hour=new Date().getHours();
-  if(uv!=null&&uv>=3){
+  // getPersonalisedSPF is the single source of truth for SPF statements —
+  // never contradict the UV card (feedback 1.2)
+  if(uv!=null){
     const sp=getPersonalisedSPF(uv,skinType);
-    recs.push(`Today's UV is ${Math.round(uv)} (${getUVBand(uv).level}). ${sp.msg}${sp.spf?' — reapply every 2 hours when outdoors':''}.`);
+    if(sp.uvR>=3){
+      recs.push(`Today's UV is ${sp.uvR} (${getUVBand(sp.uvR).level}). ${sp.msg} Reapply sunscreen every 2 hours when outdoors.`);
+    }else{
+      recs.push("Today's UV is low — no sun protection required. Check the UV index before extended time outdoors; protection is needed from UV 3 (EADO/WHO).");
+    }
   }else{
-    recs.push('Apply SPF 30+ sunscreen daily — UV rays penetrate cloud cover year-round.');
+    const m=new Date().getMonth();
+    recs.push(m>=3&&m<=8
+      ?'UV data is unavailable. At this time of year UK UV often reaches 3 or more from mid-morning — check the UV index before extended time outdoors.'
+      :'UV data is unavailable. UK UV is typically low at this time of year, but check the index before extended time outdoors, winter sports or sunny trips — protection is needed from UV 3.');
   }
   if(answers.new_changing_lesion==='yes')
     recs.push('You reported a new or changing skin area. EADO guidance recommends any changing lesion be assessed by a dermatologist promptly. Do not delay booking a check.');
@@ -843,8 +679,8 @@ function generateRecommendations(profile,wd){
   if(answers.mole_freckle_profile==='lots_of_moles')
     recs.push('With a high mole count, keep a monthly photo log of any moles that change in size, shape, or colour. Use the ABCDE rule as your guide.');
   if(answers.longterm_sun_exposure==='yes')
-    recs.push('Your high outdoor UV exposure means protective clothing (UPF 50+), a wide-brimmed hat, and UV-blocking sunglasses are essential alongside daily SPF use.');
-  if(hour>=11&&hour<=15&&uv!=null&&uv>=3)
+    recs.push('Your high outdoor UV exposure means protective clothing (UPF 50+), a wide-brimmed hat, and UV-blocking sunglasses are your primary protection — with sunscreen on skin you cannot cover whenever UV is 3 or above.');
+  if(hour>=11&&hour<=15&&uv!=null&&Math.round(uv)>=3)
     recs.push('&#9728;&#65039; You are currently in the peak UV window (11:00–15:00). Seek shade, wear a hat, and avoid prolonged direct sun exposure right now.');
   if(skinType>=7&&!recs.some(r=>r.includes('melanoma risk')))
     recs.push('Research shows darker skin tones carry equal melanoma risk to lighter tones but face lower likelihood of early detection. Regular professional checks are equally important regardless of skin tone.');
@@ -856,7 +692,8 @@ function getFitzpatrickLabel(monkTone){
   return'Type VI — Dark brown/black';
 }
 function getPersonalisedSummary(profile){
-  const{skinType,riskLevel,answers}=profile;
+  const{skinType,answers}=profile;
+  const riskLevel=profile.overallRiskLevel||profile.riskLevel;
   const light=skinType<=3;
   const fh=answers.family_melanoma_history==='yes';
   const cm=answers.new_changing_lesion==='yes';
@@ -873,11 +710,12 @@ const st={
   screen:'welcome',navDirection:'forward',history:['welcome'],
   name:'',email:'',postcode:'',consentData:false,consentMarketing:false,
   skinType:null,skinAnalysis:null,capturedPhoto:null,
-  cameraAnimFrame:null,
+  cameraAnimFrame:null,toneRetryDone:false,
   answers:{},currentQuestion:0,abcdeAnswers:{},
   consentLocation:false,consentTravel:false,lat:null,lon:null,city:'',country:'',country_code:'',
   riskScore:null,riskLevel:null,
-  inviteCode:'',
+  cumulativeUVScore:null,cumulativeUVLevel:null,overallRiskLevel:null,
+  campaignCode:'',
   profile:null,weatherData:null,currentCity:'',showTravelBanner:false,profileExpanded:true,
 };
 window.activeCameraStream=null;
@@ -917,14 +755,14 @@ function getProgressLabel(){
   }
   const labels={
     welcome:'',email:'STEP 1 OF 4 — YOUR DETAILS',consent:'STEP 1 OF 4 — PRIVACY &amp; CONSENT',
-    arm_camera:'STEP 2 OF 4 — ARM ANALYSIS',
+    arm_camera:'STEP 2 OF 4 — RIGHT ARM ANALYSIS',
     q_intro:'STEP 3 OF 4 — YOUR RISK PROFILE',
     consent_location:'STEP 4 OF 4 — LOCATION',consent_travel:'STEP 4 OF 4 — TRAVEL',
     consent_notifications:'STEP 4 OF 4 — REMINDERS',loading:'BUILDING YOUR PROFILE…',
   };
   return labels[st.screen]||'';
 }
-function renderFooter(){return`<div class="screen-footer">Powered by <a href="https://themoleclinic.co.uk" target="_blank">The Mole Clinic</a></div>`;}
+function renderFooter(){return`<div class="screen-footer">Powered by <a href="#" onclick="openExternal('https://themoleclinic.co.uk');return false">The Mole Clinic</a></div>`;}
 function renderHeader(showBack=true){
   if(st.screen==='welcome'||st.screen==='homepage')return'';
   const micro=['questionnaire','arm_camera','abcde'].includes(st.screen);
@@ -947,15 +785,15 @@ function showCameraState(s,dataURL){
   if(s==='B'){
     const b=document.getElementById('cam-state-b');
     if(b){
-      b.innerHTML=`<h2 class="title-lg" style="margin-bottom:14px">Position your arm</h2>
+      b.innerHTML=`<h2 class="title-lg" style="margin-bottom:14px">Position your right arm</h2>
         <div class="cam-wrap">
           <video id="cameraVideo" class="cam-video" autoplay playsinline muted></video>
           <canvas id="overlayCanvas" class="cam-canvas"></canvas>
-          <div class="cam-guide-pill">Align your forearm within the oval</div>
+          <div class="cam-guide-pill">Align your right forearm within the oval</div>
         </div>
         <div style="text-align:center">
           <button class="cam-shutter" onclick="capturePhoto()" title="Take photo" aria-label="Capture photo"></button>
-          <p style="font-size:12px;color:var(--tmc-gray-400);margin-top:10px">Tap when your arm is centred in the oval</p>
+          <p style="font-size:12px;color:var(--tmc-gray-400);margin-top:10px">Tap when your right forearm is centred in the oval</p>
         </div>
         <div style="margin-top:10px;text-align:center">
           <button class="btn-ghost" onclick="stopCamera();showCameraState('A')">&#8592; Back to setup</button>
@@ -972,7 +810,7 @@ function showCameraState(s,dataURL){
       stC.innerHTML=`<div style="padding:32px 20px;text-align:center">
         <div style="font-size:48px;margin-bottom:16px">&#128247;</div>
         <h3 style="font-size:20px;font-weight:700;color:#1a2e2e;margin-bottom:8px">Photo captured</h3>
-        <p style="color:#666;font-size:15px;margin-bottom:28px">Your arm photo has been saved to your profile.</p>
+        <p style="color:#666;font-size:15px;margin-bottom:28px">Your right arm photo has been saved to your profile.</p>
         <button onclick="proceedFromAnalysis()" style="width:100%;padding:14px;background:#00A99D;color:white;border:none;border-radius:10px;font-weight:600;cursor:pointer;font-size:16px">Continue &#8594;</button>
         <p style="margin-top:16px"><a href="#" onclick="retakePhoto();return false;" style="color:#00A99D;font-size:14px;text-decoration:none">Retake photo</a></p>
       </div>`;
@@ -1169,6 +1007,17 @@ const itaToMonk = (ita) => {
   return 10;                  // Deepest
 };
 
+/*
+ * Resolves {tone, status} where status is one of:
+ *   'ok'       — tone classified from in-ellipse skin pixels
+ *   'lighting' — luminance spread indicates harsh shadows/overexposure;
+ *                prompt a retake ("try facing a window")
+ *   'no_skin'  — too few skin pixels inside the guide ellipse
+ *   'error'    — image could not be decoded
+ * Feedback 1.3: previously sampled a fixed centre rectangle, so beige
+ * furniture (inside the YCbCr skin gamut) polluted the reading, and no
+ * illumination correction was applied.
+ */
 const classifyMonkToneFromPixels = (imageDataURL) => {
   return new Promise((resolve) => {
     const img = new Image();
@@ -1181,21 +1030,42 @@ const classifyMonkToneFromPixels = (imageDataURL) => {
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0);
 
-      // Sample centre region — inner forearm
-      const x1 = Math.round(W * 0.25);
-      const y1 = Math.round(H * 0.25);
-      const sw = Math.round(W * 0.50);
-      const sh = Math.round(H * 0.50);
-      const imageData = ctx.getImageData(x1, y1, sw, sh);
-      const pixels = imageData.data;
+      // Grey-world illuminant estimate from the WHOLE frame (background
+      // included). Estimating from the skin-only ellipse would neutralise
+      // the skin colour itself and wreck the ITA, so the cast is estimated
+      // globally and the correction applied to the sampled region. Gains
+      // are clamped to avoid overcorrection from colourful backgrounds.
+      const full = ctx.getImageData(0, 0, W, H).data;
+      let fR = 0, fG = 0, fB = 0, fN = 0;
+      for (let i = 0; i < full.length; i += 16) { fR += full[i]; fG += full[i+1]; fB += full[i+2]; fN++; }
+      const grey = (fR + fG + fB) / (3 * fN);
+      const clampGain = (g) => Math.min(1.4, Math.max(0.7, g));
+      const gR = clampGain(grey / ((fR / fN) || 1));
+      const gG = clampGain(grey / ((fG / fN) || 1));
+      const gB = clampGain(grey / ((fB / fN) || 1));
 
-      // Collect ITA values for each valid pixel
+      // Sample ONLY inside the same ellipse the capture overlay draws
+      // (renderArmOverlay: cx=W/2, cy=H/2, rx=W*0.37, ry=H*0.22) so the
+      // reading comes from the forearm, not the table behind it.
+      const cx = W / 2, cy = H / 2, rx = W * 0.37, ry = H * 0.22;
+      const x1 = Math.max(0, Math.round(cx - rx));
+      const y1 = Math.max(0, Math.round(cy - ry));
+      const sw = Math.min(W - x1, Math.round(rx * 2));
+      const sh = Math.min(H - y1, Math.round(ry * 2));
+      const pixels = ctx.getImageData(x1, y1, sw, sh).data;
+
       const itaValues = [];
-
+      const lumas = [];
       for (let i = 0; i < pixels.length; i += 8) {
-        const r = pixels[i];
-        const g = pixels[i+1];
-        const b = pixels[i+2];
+        const idx = i / 4;
+        const px = idx % sw, py = Math.floor(idx / sw);
+        const dx = (px + x1 - cx) / rx, dy = (py + y1 - cy) / ry;
+        if (dx * dx + dy * dy > 1) continue; // outside the guide ellipse
+
+        // Apply the global white-balance correction
+        const r = Math.min(255, pixels[i]   * gR);
+        const g = Math.min(255, pixels[i+1] * gG);
+        const b = Math.min(255, pixels[i+2] * gB);
         const brightness = (r + g + b) / 3;
 
         // Skip overexposed and underexposed pixels
@@ -1215,10 +1085,21 @@ const classifyMonkToneFromPixels = (imageDataURL) => {
         if (ita < -80 || ita > 80) continue;
 
         itaValues.push(ita);
+        lumas.push(lab.L);
       }
 
       if (itaValues.length < 10) {
-        resolve(null);
+        resolve({ tone: null, status: 'no_skin' });
+        return;
+      }
+
+      // Lighting quality gate: a wide L* spread across sampled skin means a
+      // harsh shadow or partial overexposure crosses the forearm — any tone
+      // estimate would be unreliable, so ask for a retake instead.
+      lumas.sort((a, b) => a - b);
+      const lSpread = lumas[Math.floor(lumas.length * 0.90)] - lumas[Math.floor(lumas.length * 0.10)];
+      if (lSpread > 30) {
+        resolve({ tone: null, status: 'lighting' });
         return;
       }
 
@@ -1231,10 +1112,9 @@ const classifyMonkToneFromPixels = (imageDataURL) => {
       for (let i = trimStart; i < trimEnd; i++) sum += itaValues[i];
       const medianITA = sum / (trimEnd - trimStart);
 
-      const monk = itaToMonk(medianITA);
-      resolve(monk);
+      resolve({ tone: itaToMonk(medianITA), status: 'ok' });
     };
-    img.onerror = () => resolve(null);
+    img.onerror = () => resolve({ tone: null, status: 'error' });
     img.src = imageDataURL;
   });
 };
@@ -1269,11 +1149,33 @@ const analyseArmPhoto = async (imageDataURL) => {
     })()
   ]);
   const worker = workerResult.status === 'fulfilled' ? workerResult.value : null;
-  const pixelTone = pixelResult.status === 'fulfilled' ? pixelResult.value : null;
-  const monkTone = pixelTone !== null ? pixelTone : 3;
+  const pixel = pixelResult.status === 'fulfilled' && pixelResult.value ? pixelResult.value : { tone: null, status: 'error' };
+  // Worker Monk estimate for cross-checking the pixel reading (feedback 1.3).
+  // Tolerates worker deployments that don't return monkToneEstimate yet.
+  const workerTone = worker && worker.monkToneEstimate >= 1 && worker.monkToneEstimate <= 10
+    ? Math.round(worker.monkToneEstimate) : null;
+  let monkTone = null, monkToneSource = null, toneStatus = 'ok';
+  if (pixel.status === 'lighting') {
+    toneStatus = 'lighting';
+  } else if (pixel.tone != null) {
+    monkTone = pixel.tone;
+    monkToneSource = 'pixel_sampling';
+    // Pixel and worker estimates more than 2 tones apart: confidence is low —
+    // prompt a retake rather than trusting either reading
+    if (workerTone != null && Math.abs(workerTone - pixel.tone) > 2) toneStatus = 'mismatch';
+  } else if (workerTone != null) {
+    monkTone = workerTone;
+    monkToneSource = 'worker';
+  } else {
+    // NO silent default — a fallback of tone 3 biases light (feedback 1.3).
+    // A null tone routes the user to manual swatch selection.
+    toneStatus = pixel.status || 'error';
+  }
   return {
     monkTone,
-    monkToneSource: pixelTone !== null ? 'pixel_sampling' : 'default',
+    monkToneSource,
+    toneStatus,
+    workerTone,
     moleCount: worker ? worker.moleCount : -1,
     moleCountCategory: worker ? worker.moleCountCategory : 'under7',
     confidence: worker ? worker.confidence : 'low',
@@ -1289,10 +1191,87 @@ function handleAnalysisResult(result){
   // 7-10 arm moles → ~50+ body moles; 11+ arm → elevated melanoma risk
   const moleMap={under7:'under10','7to10':'10to50','11plus':'50plus'};
   const moleCountAnswer=moleRaw?(moleMap[moleRaw]||'under10'):null;
-  if(mst)st.skinType=mst;
   if(moleCountAnswer)st.answers.mole_count=moleCountAnswer;
-  st.skinAnalysis={mst,monkToneSource:result.monkToneSource||null,moleRaw,moleCountCategory:moleRaw,moleCount:result.moleCount!=null?result.moleCount:-1,moleCountAnswer,confidence,photoDataUrl:st.capturedPhoto};
+  st.skinAnalysis={mst,monkToneSource:result.monkToneSource||null,workerTone:result.workerTone??null,toneStatus:result.toneStatus,moleRaw,moleCountCategory:moleRaw,moleCount:result.moleCount!=null?result.moleCount:-1,moleCountAnswer,confidence,photoDataUrl:st.capturedPhoto};
+  // Tone quality gates (feedback 1.3): uneven lighting or a pixel/worker
+  // mismatch gets ONE retake prompt, then falls back to manual selection
+  if(result.toneStatus==='lighting'||result.toneStatus==='mismatch'){
+    if(!st.toneRetryDone){st.toneRetryDone=true;showToneRetakePrompt(result.toneStatus);return;}
+    showManualToneSelect();return;
+  }
+  if(mst==null){showManualToneSelect();return;}
+  st.skinType=mst;
   showAnalysisResults();
+}
+function showToneRetakePrompt(reason){
+  const stC=document.getElementById('cam-state-c');
+  if(!stC){showManualToneSelect();return;}
+  const msg=reason==='lighting'
+    ?'Lighting looks uneven — try facing a window, with no harsh shadows across your arm.'
+    :'We couldn\'t get a confident skin tone reading from that photo. One more try in better light usually fixes it.';
+  stC.innerHTML=`<div class="content animate-in">
+    <h2 class="title-lg">Let's try that again</h2>
+    <div class="cam-error-box">
+      <div style="font-size:15px;font-weight:600;color:var(--tmc-coral);margin-bottom:6px">Skin tone reading unreliable</div>
+      <div style="font-size:13px;color:var(--tmc-gray-600);line-height:1.5">${msg}</div>
+    </div>
+    <div style="margin-top:20px;display:flex;flex-direction:column;gap:10px">
+      <button class="btn-primary" onclick="retakePhoto()">Retake photo</button>
+      <button class="btn-ghost" onclick="showManualToneSelect()">Choose my skin tone manually</button>
+    </div>
+  </div>`;
+  showCameraState('C');
+}
+// Monk swatch scale — used for both the confirmation step and manual selection
+function renderMonkSwatches(selected,onclickFn){
+  return`<div style="display:flex;gap:5px;justify-content:center;margin-top:12px">${skinTypes.map(t=>
+    `<div onclick="${onclickFn}(${t.id})" role="button" aria-label="Monk tone ${t.id}" style="width:27px;height:27px;border-radius:50%;background:${t.color};cursor:pointer;box-sizing:border-box;border:${t.id===selected?'3px solid var(--tmc-teal)':'1.5px solid rgba(0,0,0,.15)'}"></div>`).join('')}</div>`;
+}
+// Manual skin tone selection — used when the user skips the camera, when
+// detection fails, or after a failed retry. Source recorded as 'manual'.
+function showManualToneSelect(){
+  if(st.screen!=='arm_camera'){navigate('arm_camera');}
+  const stC=document.getElementById('cam-state-c');
+  if(!stC)return;
+  stC.innerHTML=`<div class="content animate-in">
+    <h2 class="title-lg">Select your skin tone</h2>
+    <p class="subtitle-sm">Tap the swatch on the Monk scale that best matches the inside of your right forearm.</p>
+    <div class="card" style="margin-top:16px">
+      ${renderMonkSwatches(st.skinType,'manualToneTap')}
+      <p id="manualToneLabel" style="text-align:center;font-size:13px;color:var(--tmc-gray-600);margin-top:10px">${st.skinType?`Monk tone ${st.skinType} of 10`:'No tone selected yet'}</p>
+    </div>
+    <div style="margin-top:20px">
+      <button class="btn-primary" id="manualToneNext" onclick="confirmManualTone()" ${st.skinType?'':'disabled'}>Continue &#8594;</button>
+    </div>
+  </div>`;
+  showCameraState('C');
+}
+function manualToneTap(id){
+  st.skinType=id;
+  if(st.skinAnalysis)st.skinAnalysis.mst=id;
+  const stC=document.getElementById('cam-state-c');
+  if(!stC)return;
+  // refresh swatch highlight + label + button in place
+  const card=stC.querySelector('.card');
+  if(card)card.innerHTML=`${renderMonkSwatches(id,'manualToneTap')}<p id="manualToneLabel" style="text-align:center;font-size:13px;color:var(--tmc-gray-600);margin-top:10px">Monk tone ${id} of 10</p>`;
+  const btn=document.getElementById('manualToneNext');
+  if(btn)btn.disabled=false;
+}
+function confirmManualTone(){
+  if(!st.skinType)return;
+  if(!st.skinAnalysis)st.skinAnalysis={mst:st.skinType,photoDataUrl:null};
+  st.skinAnalysis.mst=st.skinType;
+  st.skinAnalysis.monkToneSource='manual';
+  proceedFromAnalysis();
+}
+// Confirmation step: user taps a different swatch to adjust the detected tone
+function adjustDetectedTone(id){
+  st.skinType=id;
+  if(st.skinAnalysis){st.skinAnalysis.mst=id;st.skinAnalysis.monkToneSource='user_adjusted';}
+  const wrap=document.getElementById('toneConfirmSwatches');
+  if(wrap)wrap.innerHTML=renderMonkSwatches(id,'adjustDetectedTone');
+  const lbl=document.getElementById('toneConfirmLabel');
+  if(lbl)lbl.innerHTML=`Monk tone <strong>${id}</strong> of 10 — adjusted by you`;
 }
 function handleAnalysisError(e){
   const stC=document.getElementById('cam-state-c');
@@ -1313,20 +1292,22 @@ function showAnalysisResults(){
   const sa=st.skinAnalysis;
   const stC=document.getElementById('cam-state-c');
   if(!stC)return;
-  const skinTone=sa.mst?skinTypes.find(s=>s.id===sa.mst):null;
   const moleLabels={under7:'Fewer than 7',['7to10']:'7–10',['11plus']:'11 or more'};
   const bodyLabels={under10:'Fewer than 10 (typical)','10-20':'10–20','20-50':'20–50','10to50':'10–50 (moderate)','50plus':'50 or more (elevated)'};
   stC.innerHTML=`<div class="content animate-in">
     <h2 class="title-lg">&#10003; Analysis complete</h2>
-    ${st.capturedPhoto?`<img src="${st.capturedPhoto}" class="cam-result-img" alt="Captured arm photo" style="margin-top:14px">`:``}
+    ${st.capturedPhoto?`<img src="${st.capturedPhoto}" class="cam-result-img" alt="Captured right forearm photo" style="margin-top:14px">`:``}
     <div class="cam-result-card">
-      <div style="font-size:13px;font-weight:700;color:var(--tmc-teal-dark);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">AI Analysis Results</div>
-      ${sa.mst?`<div class="cam-result-row">
-        <span class="cam-result-label">Skin tone (Monk Scale)</span>
-        <span class="cam-result-value"><span style="display:inline-block;width:16px;height:16px;border-radius:50%;background:${skinTone?.color||'#ccc'};border:1.5px solid rgba(0,0,0,.15);vertical-align:middle;margin-right:4px"></span>MST ${sa.mst}/10</span>
-      </div>`:``}
+      <div style="font-size:13px;font-weight:700;color:var(--tmc-teal-dark);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Your detected skin tone</div>
+      <div id="toneConfirmSwatches">${renderMonkSwatches(sa.mst,'adjustDetectedTone')}</div>
+      <p id="toneConfirmLabel" style="text-align:center;font-size:13px;color:var(--tmc-gray-600);margin-top:10px">Monk tone <strong>${sa.mst}</strong> of 10 — detected from your photo</p>
+      <p style="text-align:center;font-size:14px;font-weight:600;color:var(--tmc-navy);margin-top:10px">Does this look right?</p>
+      <p style="text-align:center;font-size:12px;color:var(--tmc-gray-600);margin-top:4px">Tap a different swatch to adjust it.</p>
+    </div>
+    <div class="cam-result-card" style="margin-top:10px">
+      <div style="font-size:13px;font-weight:700;color:var(--tmc-teal-dark);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">AI mole analysis</div>
       ${sa.moleRaw?`<div class="cam-result-row">
-        <span class="cam-result-label">Visible arm moles</span>
+        <span class="cam-result-label">Visible right-arm moles</span>
         <span class="cam-result-value">${moleLabels[sa.moleRaw]||sa.moleRaw}</span>
       </div>
       <div class="cam-result-row">
@@ -1338,14 +1319,16 @@ function showAnalysisResults(){
         <span class="cam-result-value" style="text-transform:capitalize">${sa.confidence}</span>
       </div>
     </div>
-    <p style="font-size:11px;color:var(--tmc-gray-400);margin-top:10px;line-height:1.5">Arm mole count predicts body mole burden per Bataille et al. 2015 (King's College London). Body mole count question will be pre-filled in your questionnaire.</p>
+    <p style="font-size:11px;color:var(--tmc-gray-400);margin-top:10px;line-height:1.5">Right-arm mole count predicts body mole burden per Bataille et al. 2015 (King's College London). Body mole count question will be pre-filled in your questionnaire.</p>
     <div style="margin-top:20px;display:flex;gap:10px">
-      <button class="btn-secondary" onclick="st.capturedPhoto=null;st.skinAnalysis=null;retakePhoto()" style="flex:1">Retake</button>
-      <button class="btn-primary" onclick="proceedFromAnalysis()" style="flex:1">Continue &#8594;</button>
+      <button class="btn-secondary" onclick="st.capturedPhoto=null;st.skinAnalysis=null;retakePhoto()" style="flex:1">Retake photo</button>
+      <button class="btn-primary" onclick="proceedFromAnalysis()" style="flex:1">Confirm &#8594;</button>
     </div>
   </div>`;
 }
-function proceedWithoutAnalysis(){st.currentQuestion=0;navigate('q_intro');}
+// "Skip" now routes to manual tone selection — the profile should never be
+// missing a skin tone, and detection must never silently default (feedback 1.3)
+function proceedWithoutAnalysis(){showManualToneSelect();}
 function proceedFromAnalysis(){st.currentQuestion=0;navigate('q_intro');}
 // ===== RENDER FUNCTIONS =====
 function renderWelcome(){
@@ -1354,12 +1337,12 @@ function renderWelcome(){
       <img src="https://themoleclinic.co.uk/wp-content/uploads/2025/02/MoleClinic-Ver-White2.png" alt="The Mole Clinic" class="welcome-hero-logo" style="height:90px;width:auto;display:block;">
       <h1 class="title-xl">Free Skin<br>Health Check</h1>
       <p class="subtitle">Get your personalised Mole Clinic Profile in minutes. Know your risk. Know your next step.</p>
-      <div class="welcome-stat animate-in-delay-1">&#128300; Over 16,000 people are diagnosed with melanoma in the UK each year.</div>
+      <div class="welcome-stat animate-in-delay-1">&#128300; Over 16,000 people are diagnosed with melanoma skin cancer in the UK each year.</div>
       <div class="welcome-social-proof animate-in-delay-2">Used by patients across The Mole Clinic's UK clinics</div>
     </div>
     <div class="content">
       <div class="feature-list">
-        <div class="feature-item animate-in-delay-1"><div class="feature-icon feature-icon-teal">&#129504;</div><div><div class="feature-title">AI Skin Analysis</div><div class="feature-desc">Camera analysis of your arm to detect your Monk skin tone and mole profile — powered by Claude AI</div></div></div>
+        <div class="feature-item animate-in-delay-1"><div class="feature-icon feature-icon-teal">&#129504;</div><div><div class="feature-title">AI Skin Analysis</div><div class="feature-desc">Camera analysis of your right forearm to detect your Monk skin tone and mole profile — powered by Claude AI</div></div></div>
         <div class="feature-item animate-in-delay-2"><div class="feature-icon feature-icon-coral">&#9728;</div><div><div class="feature-title">Live UV &amp; Sun Safety</div><div class="feature-desc">Real-time UV index with personalised SPF recommendation for your skin tone</div></div></div>
         <div class="feature-item animate-in-delay-3"><div class="feature-icon feature-icon-gold">&#128202;</div><div><div class="feature-title">Your Skin Safety Dashboard</div><div class="feature-desc">Clinically informed questions covering your skin profile, personal history, UV exposure, and any areas of concern</div></div></div>
       </div>
@@ -1380,7 +1363,7 @@ function renderEmail(){
         <div class="input-group"><label class="input-label">First name</label><input class="input-field" type="text" id="nameInput" placeholder="Your first name" value="${st.name}" autocomplete="given-name"></div>
         <div class="input-group"><label class="input-label">Email address</label><input class="input-field" type="email" id="emailInput" placeholder="your@email.com" value="${st.email}" autocomplete="email"></div>
         <div class="input-group"><label class="input-label">Postcode</label><input class="input-field" type="text" id="postcodeInput" placeholder="e.g. M1 2AB" value="${st.postcode}" maxlength="8" style="text-transform:uppercase" autocomplete="postal-code"></div>
-        <div class="input-group"><label class="input-label" style="font-weight:500;color:var(--tmc-gray-600)">Partner or invite code <span style="font-weight:400;font-size:12px;color:var(--tmc-gray-400)">(optional)</span></label><input class="input-field" type="text" id="inviteInput" placeholder="e.g. NORTH2026" value="${st.inviteCode||''}" autocomplete="off" style="text-transform:uppercase"></div>
+        <div class="input-group"><label class="input-label" style="font-weight:500;color:var(--tmc-gray-600)">Campaign code <span style="font-weight:400;font-size:12px;color:var(--tmc-gray-400)">(optional)</span></label><input class="input-field" type="text" id="campaignInput" placeholder="e.g. NORTH2026" value="${st.campaignCode||''}" autocomplete="off" style="text-transform:uppercase"><p style="font-size:12px;color:var(--tmc-gray-400);margin-top:4px">Have a campaign code from your employer or event? Enter it here — otherwise leave blank.</p></div>
         <p style="font-size:12px;color:var(--tmc-gray-600);margin-top:4px">Your data is processed in accordance with GDPR. We'll never sell your details.</p>
       </div>
     </div>
@@ -1408,6 +1391,7 @@ function renderConsent(){
           </div>
         </div>
       </div>
+      ${st.campaignCode?`<div class="consent-info-box" style="margin-top:12px"><strong>Campaign code entered:</strong> your results stay on this device and are not shared with your employer or event organiser in this version of the app.</div>`:''}
       <div class="disclaimer">Your photos and analysis data are processed locally and securely. No images are stored on our servers.</div>
     </div>
     <div class="bottom-action"><button class="btn-primary" id="consentNext" ${!st.consentData?'disabled':''}>Continue &#8594;</button></div>
@@ -1418,13 +1402,25 @@ function renderArmCamera(){
   return`<div class="screen">
     ${renderHeader()}
     <div id="cam-state-a" class="content animate-in">
-      <h2 class="title-lg">&#129504; Arm Skin Analysis</h2>
-      <p class="subtitle">We'll use your camera and Claude AI to detect your Monk skin tone and count visible moles on your arm — automatically filling in part of your profile.</p>
+      <h2 class="title-lg">&#129504; Right Arm Skin Analysis</h2>
+      <p class="subtitle">We'll use your camera and Claude AI to detect your Monk skin tone and count visible moles on your <strong>right forearm</strong> — automatically filling in part of your profile. The evidence behind arm mole counting is specific to the right arm.</p>
+      <div class="card" style="margin-top:16px;padding:14px;text-align:center">
+        <svg viewBox="0 0 320 150" width="100%" style="max-width:320px" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Diagram of a correctly framed right inner forearm: wrist on the left, elbow on the right, on a plain background">
+          <rect x="0" y="0" width="320" height="150" rx="12" fill="#eef1f4"/>
+          <ellipse cx="34" cy="72" rx="15" ry="22" fill="#d7bd96" stroke="#b89a73" stroke-width="2"/>
+          <path d="M42,72 C42,58 62,52 84,52 L240,46 C268,46 290,57 292,72 C290,87 268,98 240,98 L84,92 C62,92 42,86 42,72 Z" fill="#d7bd96" stroke="#b89a73" stroke-width="2"/>
+          <circle cx="148" cy="68" r="3" fill="#6b4630"/><circle cx="198" cy="78" r="2.5" fill="#6b4630"/><circle cx="122" cy="80" r="2" fill="#6b4630"/>
+          <ellipse cx="166" cy="72" rx="120" ry="48" fill="none" stroke="#2ec4b6" stroke-width="2.5" stroke-dasharray="10,6"/>
+          <text x="34" y="132" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="12" font-weight="700" fill="#1a2332">WRIST</text>
+          <text x="282" y="132" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="12" font-weight="700" fill="#1a2332">ELBOW</text>
+        </svg>
+        <p style="font-size:12px;color:var(--tmc-gray-600);margin-top:8px;line-height:1.5">Your screen should mirror this: <strong>right inner forearm</strong>, wrist on the left, elbow on the right, on a plain background.</p>
+      </div>
       <div class="photo-tips-list">
-        <div class="photo-tip-row"><div class="photo-tip-emoji">&#128759;</div><div class="photo-tip-body"><strong>Natural daylight works best</strong>Stand near a window — avoid warm yellow indoor lighting as it can affect the skin tone reading.</div></div>
-        <div class="photo-tip-row"><div class="photo-tip-emoji">&#9728;&#65039;</div><div class="photo-tip-body"><strong>Good, even lighting</strong>Natural daylight or a bright room. Avoid shadows.</div></div>
-        <div class="photo-tip-row"><div class="photo-tip-emoji">&#128170;</div><div class="photo-tip-body"><strong>Extend your forearm</strong>Hold your arm flat, palm up. Roll up your sleeve to the elbow.</div></div>
-        <div class="photo-tip-row"><div class="photo-tip-emoji">&#128247;</div><div class="photo-tip-body"><strong>30–40 cm from camera</strong>Fill the frame with your forearm from wrist to elbow.</div></div>
+        <div class="photo-tip-row"><div class="photo-tip-emoji">&#129305;</div><div class="photo-tip-body"><strong>Right arm, left hand</strong>Hold your phone in your left hand to photograph your right forearm — that's the right way round. Palm up, sleeve rolled to the elbow.</div></div>
+        <div class="photo-tip-row"><div class="photo-tip-emoji">&#128759;</div><div class="photo-tip-body"><strong>Natural daylight works best</strong>Face a window — avoid warm yellow indoor lighting and harsh shadows, as they affect the skin tone reading.</div></div>
+        <div class="photo-tip-row"><div class="photo-tip-emoji">&#129003;</div><div class="photo-tip-body"><strong>Plain background</strong>Rest your arm on a plain, non-beige surface if possible — beige can be mistaken for skin.</div></div>
+        <div class="photo-tip-row"><div class="photo-tip-emoji">&#128247;</div><div class="photo-tip-body"><strong>30–40 cm from camera</strong>Fill the oval with your right forearm from wrist to elbow.</div></div>
       </div>
       <div style="margin-top:20px;display:flex;flex-direction:column;gap:12px">
         <button class="btn-primary" id="camStartBtn" onclick="startCamera()">Start Camera &#8594;</button>
@@ -1444,6 +1440,7 @@ function renderQIntro(){
     <div class="q-intro-screen animate-in">
       <h2 class="title-lg" style="color:white;margin-bottom:20px">About your skin risk profile</h2>
       <div style="font-size:15px;color:rgba(255,255,255,.85);line-height:1.75">
+        ${st.campaignCode?`<p style="margin-bottom:16px">As part of your workplace skin-health check, the questions about outdoor work and lifetime sun exposure are especially relevant — please answer for your whole working life, not just your current role.</p>`:''}
         <p style="margin-bottom:16px">Skin cancer can affect people of all skin types and does not always arise from moles. Some skin cancers are related to moles and changes over time. Others — particularly non-melanoma skin cancers such as basal cell carcinoma (BCC) and squamous cell carcinoma (SCC) — are related to cumulative sun exposure and sun-damaged skin.</p>
         <p>These questions help us understand different types of skin cancer risk and recommend the most appropriate professional skin check for you.</p>
       </div>
@@ -1458,8 +1455,8 @@ function renderQuestionnaire(){
   const vis=questions.filter(vq=>!shouldSkipQuestion(vq));
   const isLastVis=vis[vis.length-1]?.id===q.id;
   const nudgeVal=q.multiselect?null:sel;
-  const nudge=riskNudges[q.id]&&nudgeVal&&riskNudges[q.id][nudgeVal]
-    ?`<div class="risk-nudge"><div class="risk-nudge-icon">&#8505;</div><div class="risk-nudge-text">${riskNudges[q.id][nudgeVal]}</div></div>`:'';
+  const nudge=`<div id="qNudge">${riskNudges[q.id]&&nudgeVal&&riskNudges[q.id][nudgeVal]
+    ?`<div class="risk-nudge"><div class="risk-nudge-icon">&#8505;</div><div class="risk-nudge-text">${riskNudges[q.id][nudgeVal]}</div></div>`:''}</div>`;
   const isDisabled=q.multiselect?(!Array.isArray(sel)||sel.length===0):!sel;
   let optionsHtml='';
   if(q.multiselect){
@@ -1490,12 +1487,68 @@ function renderQuestionnaire(){
       <h2 class="title-lg">${q.question}</h2>
       ${q.subtitle?`<p class="subtitle-sm">${q.subtitle}</p>`:''}
       ${q.instruction?`<p class="subtitle-sm" style="font-style:italic">${q.instruction}</p>`:''}
+      ${q.education?renderMoleEducationPanel():''}
       <div style="margin-top:20px">${optionsHtml}</div>
       ${nudge}
     </div>
     <div class="bottom-action"><button class="btn-primary" id="questionNext" ${isDisabled?'disabled':''}>${isLastVis?'Continue &#8594;':'Next Question &#8594;'}</button></div>
     ${renderFooter()}
   </div>`;
+}
+// Collapsible visual education panel for the lesion questions (feedback 1.9).
+// Simple illustrative SVGs, not photos — avoids both copyright and alarm.
+// Collapsed by default so it doesn't lengthen the questionnaire flow.
+function renderMoleEducationPanel(){
+  const typicalSVG=`<svg viewBox="0 0 120 100" width="100%" height="84" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A typical mole: round with even colour and a smooth edge">
+    <rect x="0" y="0" width="120" height="100" rx="10" fill="#f6e7d8"/>
+    <ellipse cx="60" cy="50" rx="24" ry="22" fill="#8d6748"/>
+    <ellipse cx="60" cy="50" rx="24" ry="22" fill="none" stroke="#7a573c" stroke-width="1.5"/>
+  </svg>`;
+  const suspiciousSVG=`<svg viewBox="0 0 120 100" width="100%" height="84" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A suspicious mole: asymmetric with ragged edges and mixed shades">
+    <rect x="0" y="0" width="120" height="100" rx="10" fill="#f6e7d8"/>
+    <path d="M38,54 C33,40 46,27 59,31 C68,22 85,28 87,41 C99,45 95,60 83,62 C82,74 64,80 54,70 C42,75 34,66 38,54 Z" fill="#6b4630"/>
+    <path d="M52,40 C60,34 72,38 74,47 C76,55 66,60 58,57 C50,55 47,46 52,40 Z" fill="#2e1c12"/>
+    <path d="M66,56 C73,53 80,57 79,63 C77,69 68,69 65,64 Z" fill="#a0522d"/>
+    <path d="M38,54 C33,40 46,27 59,31 C68,22 85,28 87,41 C99,45 95,60 83,62 C82,74 64,80 54,70 C42,75 34,66 38,54 Z" fill="none" stroke="#4a2f1d" stroke-width="1.5" stroke-dasharray="3,2"/>
+  </svg>`;
+  return`<div style="margin-top:14px">
+    <div class="collapsible-header" onclick="toggleMoleEducation()">
+      <div class="collapsible-title">&#128269; What does a suspicious mole look like?</div>
+      <div class="collapsible-chevron" id="eduChevron">&#9660;</div>
+    </div>
+    <div class="collapsible-body" id="eduCollapse">
+      <div class="collapsible-inner">
+        <div style="display:flex;gap:12px">
+          <div style="flex:1;text-align:center">${typicalSVG}<div style="font-size:12px;color:var(--tmc-gray-600);margin-top:6px;line-height:1.4"><strong style="color:#2e7d32">Typical:</strong> round, one even colour, smooth edge</div></div>
+          <div style="flex:1;text-align:center">${suspiciousSVG}<div style="font-size:12px;color:var(--tmc-gray-600);margin-top:6px;line-height:1.4"><strong style="color:#c62828">Get it checked:</strong> asymmetric, ragged border, mixed shades</div></div>
+        </div>
+        <p style="font-size:12px;color:var(--tmc-gray-600);margin-top:10px;line-height:1.5">A <strong>new</strong> mole, or one that is <strong>changing</strong>, matters more than moles that have looked the same for years.</p>
+      </div>
+    </div>
+  </div>`;
+}
+function toggleMoleEducation(){
+  const col=document.getElementById('eduCollapse'),chev=document.getElementById('eduChevron');
+  if(col){const open=col.classList.toggle('open');if(chev)chev.classList.toggle('open',open);}
+}
+// In-place questionnaire update on answer selection — no full re-render, so
+// the scroll position is preserved (feedback 1.8)
+function refreshQuestionUI(){
+  const q=questions[st.currentQuestion];
+  const sel=st.answers[q.id];
+  document.querySelectorAll('.option-card[data-answer]').forEach(c=>{
+    const v=c.dataset.answer;
+    const on=q.multiselect?(Array.isArray(sel)&&sel.includes(v)):sel===v;
+    c.classList.toggle('selected',on);
+  });
+  const nudgeWrap=document.getElementById('qNudge');
+  if(nudgeWrap){
+    const nudgeVal=q.multiselect?null:sel;
+    const msg=riskNudges[q.id]&&nudgeVal?riskNudges[q.id][nudgeVal]:null;
+    nudgeWrap.innerHTML=msg?`<div class="risk-nudge"><div class="risk-nudge-icon">&#8505;</div><div class="risk-nudge-text">${msg}</div></div>`:'';
+  }
+  const btn=document.getElementById('questionNext');
+  if(btn)btn.disabled=q.multiselect?(!Array.isArray(sel)||sel.length===0):!sel;
 }
 function renderABCDE(){
   return`<div class="screen">
@@ -1599,22 +1652,72 @@ function renderLoading(){
     ${renderFooter()}
   </div>`;
 }
+// ===== BOOKING & NEAREST CLINIC =====
+// All booking goes to the service-specific pages in BOOK_URLS (logic.js) —
+// the patient picks their clinic inside the booking flow.
+function openBooking(serviceKey){window.open(BOOK_URLS[serviceKey]||BOOK_URLS.skinCheck,'_blank');}
+function openExternal(url){window.open(url,'_blank');}
+function bookingKeyForRec(rec){return rec&&rec.primary==='mole_mapping'?'moleMapping':'skinCheck';}
+function formatMiles(d){return d<10?d.toFixed(1):Math.round(d).toString();}
+function renderClinicListRows(list){
+  return list.map(c=>`<div class="clinic-list-row">
+    <div><div class="clinic-list-name">${c.name}</div><div class="clinic-list-addr">${c.address}</div></div>
+    ${c.distance!=null?`<div class="clinic-list-dist">${formatMiles(c.distance)} miles</div>`:''}
+  </div>`).join('');
+}
+function toggleClinicList(){
+  const el=document.getElementById('clinicListBody'),ch=document.getElementById('clinicChevron');
+  if(el){const open=el.classList.toggle('open');if(ch)ch.textContent=open?'▲':'▼';}
+}
+// Coordinate priority: live geolocation from the profile → postcode lookup →
+// no location (full clinic picker, expanded — never guess a clinic)
+async function initNearestClinicAsync(){
+  const p=st.profile;if(!p)return;
+  const el=document.getElementById('nearest-clinic-block');if(!el)return;
+  let lat=p.lat,lon=p.lon;
+  if(!(typeof lat==='number'&&typeof lon==='number')&&p.postcode){
+    const coords=await fetchCoordinatesFromPostcode(p.postcode);
+    if(coords){lat=coords.lat;lon=coords.lon;}
+  }
+  const sorted=getClinicsByDistance(lat,lon);
+  const hasDist=sorted[0]&&sorted[0].distance!=null;
+  if(hasDist){
+    el.innerHTML=`<div class="book-card-row" style="border-bottom:none"><span class="book-card-label">Your nearest clinic</span><span class="book-card-value">${sorted[0].name} (${formatMiles(sorted[0].distance)} miles)</span></div>
+      <button class="clinic-expander-toggle" onclick="toggleClinicList()">Choose a different clinic <span id="clinicChevron">▼</span></button>
+      <div id="clinicListBody" class="clinic-list-body">${renderClinicListRows(sorted)}</div>
+      <p style="font-size:11px;color:rgba(255,255,255,.55);margin-bottom:10px">You'll choose your clinic and appointment time in the booking flow.</p>`;
+  }else{
+    el.innerHTML=`<div class="book-card-row" style="border-bottom:none"><span class="book-card-label">Our clinics</span><span class="book-card-value">Choose during booking</span></div>
+      <div id="clinicListBody" class="clinic-list-body open">${renderClinicListRows(sorted)}</div>
+      <p style="font-size:11px;color:rgba(255,255,255,.55);margin-bottom:10px">Enable location or add a postcode to see your nearest clinic. You'll choose your clinic in the booking flow.</p>`;
+  }
+}
 // ===== HOMEPAGE HELPERS =====
+// Neutral message when live UV is unavailable — no blanket SPF instruction
+// (EADO/WHO: protection is only needed from UV 3; feedback 1.2)
 function getDefaultSPFRec(monkTone){
-  if(monkTone<=3)return'We recommend <strong>SPF 50+</strong> as your daily minimum given your skin type.';
-  if(monkTone<=6)return'We recommend <strong>SPF 30–50</strong> as your daily minimum.';
-  return'Apply <strong>SPF 30+</strong> daily — melanoma risk is equal across all skin tones regardless of natural pigmentation.';
+  const base='Live UV is unavailable — check the UV index before extended time outdoors. Protection is needed from UV 3 (EADO/WHO): shade and clothing first, with sunscreen on skin you cannot cover.';
+  if(monkTone>=7)return base+' Melanoma risk is equal across all skin tones — the UV 3 rule applies to everyone.';
+  return base;
+}
+// Single source of truth for displaying the SPF/protection message (feedback 1.2)
+function buildSpfRecHtml(spf){
+  let html=spf.spf
+    ?spf.msg.replace('SPF '+spf.spf,'<strong>SPF '+spf.spf+'</strong>')
+    :spf.msg;
+  if(spf.note)html+=`<div class="uv-spf-note">${spf.note}</div>`;
+  return html;
 }
 function buildUVCardHtml(wd,p,hour){
   const isPeak=hour>=11&&hour<=15;
   if(wd&&wd.uv!=null){
-    const band=getUVBand(wd.uv),spf=getPersonalisedSPF(wd.uv,p.skinType),showPeak=isPeak&&wd.uv>=3;
-    const spfAction=spf.spf?(spf.msg.replace(/^SPF [^,]+,\s*/,'')||spf.msg).replace(/^./,c=>c.toUpperCase()):'';
+    const uvR=Math.round(wd.uv);
+    const band=getUVBand(uvR),spf=getPersonalisedSPF(wd.uv,p.skinType),showPeak=isPeak&&uvR>=3;
     return`<div id="hp-uv-loading" style="display:none"></div><div id="hp-uv-data">
       <div class="uv-gauge-wrap" id="hp-uv-gauge">${renderUVGaugeSVG(wd.uv)}</div>
-      <div class="uv-value-row"><div class="uv-value" id="hp-uv-value">${Math.round(wd.uv)}</div><div class="uv-value-label">UV Index</div></div>
+      <div class="uv-value-row"><div class="uv-value" id="hp-uv-value">${uvR}</div><div class="uv-value-label">UV Index</div></div>
       <div class="uv-level-badge" id="hp-uv-level" style="background:${band.bg};color:${band.text}">${band.level}</div>
-      <div class="uv-spf-rec" id="hp-spf-msg">${spf.spf?`Based on your current location, the current weather and your skin profile, we recommend <strong>SPF ${spf.spf}</strong> today. ${spfAction}.`:'No sun protection required at current UV levels.'}${spf.note?`<div class="uv-spf-note">${spf.note}</div>`:''}</div>
+      <div class="uv-spf-rec" id="hp-spf-msg">${buildSpfRecHtml(spf)}</div>
       <div class="uv-peak-alert" id="hp-peak-uv" style="display:${showPeak?'block':'none'}">&#9728;&#65039; You are in the peak UV window right now (11:00–15:00)</div>
       <div class="uv-weather-row" id="hp-weather-summary"><span style="font-size:20px">${getWeatherEmoji(wd.weatherCode)}</span><span>${Math.round(wd.temp)}°C · ${getWeatherDesc(wd.weatherCode)}</span></div>
     </div>`;
@@ -1653,23 +1756,18 @@ function renderHomepage(){
   const wd=st.weatherData,hour=new Date().getHours();
   const recs=generateRecommendations(p,wd);
   const factors=getKeyRiskFactorBullets(p.answers,p.skinType,p.abcdeAnswers);
-  const checkFreq=getCheckFrequency(p.riskLevel);
+  // Headline band = higher of the two pathway bands (feedback 1.11);
+  // fallback to the melanoma band for any pre-cumulative profile
+  const overall=p.overallRiskLevel||p.riskLevel;
+  const cumulativeHigh=p.cumulativeUVLevel==='HIGH'||p.cumulativeUVLevel==='VERY HIGH';
+  const checkFreq=getCheckFrequency(overall);
   const fitzType=getFitzpatrickLabel(p.skinType);
   const summary=getPersonalisedSummary(p);
   const skinTone=skinTypes.find(s=>s.id===p.skinType);
-  const riskTagClass={LOW:'tag-low',MODERATE:'tag-moderate',HIGH:'tag-high','VERY HIGH':'tag-veryhigh'}[p.riskLevel]||'tag-low';
-  const freqClass={LOW:'freq-low',MODERATE:'freq-mod',HIGH:'freq-high','VERY HIGH':'freq-veryhigh'}[p.riskLevel]||'freq-low';
+  const riskTagClass={LOW:'tag-low',MODERATE:'tag-moderate',HIGH:'tag-high','VERY HIGH':'tag-veryhigh'}[overall]||'tag-low';
+  const freqClass={LOW:'freq-low',MODERATE:'freq-mod',HIGH:'freq-high','VERY HIGH':'freq-veryhigh'}[overall]||'freq-low';
   const cityDisplay=st.currentCity||p.city||'';
-  const riskGaugeSVG=`<svg id="hpRiskGaugeSvg" width="220" height="130" viewBox="0 0 220 130">
-    <defs><linearGradient id="hpGG" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" style="stop-color:#28a745"/><stop offset="50%" style="stop-color:#f2cc8f"/><stop offset="100%" style="stop-color:#c62828"/>
-    </linearGradient></defs>
-    <path d="M 20 110 A 90 90 0 0 1 200 110" fill="none" stroke="#e8e8e8" stroke-width="14" stroke-linecap="round"/>
-    <path d="M 20 110 A 90 90 0 0 1 200 110" fill="none" stroke="url(#hpGG)" stroke-width="14" stroke-linecap="round" opacity="0.2"/>
-    <path id="hpGaugeFill" d="M 20 110 A 90 90 0 0 1 200 110" fill="none" stroke="url(#hpGG)" stroke-width="14" stroke-linecap="round" stroke-dasharray="283" stroke-dashoffset="283" style="transition:stroke-dashoffset 1.6s cubic-bezier(.4,0,.2,1)"/>
-    <text id="hpGaugeScore" x="110" y="95" text-anchor="middle" font-family="Fraunces,serif" font-size="36" font-weight="700" fill="#1a2332">0</text>
-    <text x="110" y="115" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="12" fill="#9a9a9a">out of 100</text>
-  </svg>`;
+  // Band-only presentation — no numeric score anywhere in the UI (feedback 1.5)
   const aiBadge=p.skinAnalysis?.mst?`<div style="display:inline-flex;align-items:center;gap:6px;background:var(--tmc-teal-light);border:1px solid rgba(46,196,182,.3);border-radius:20px;padding:4px 12px;font-size:12px;color:var(--tmc-teal-dark);font-weight:600;margin-top:8px">&#129504; Skin tone detected by AI</div>`:'';
   // Resolve partnerInfo from live profile first, then re-derive from registry as fallback
   // (guards against partnerInfo being missing from an older localStorage entry)
@@ -1680,7 +1778,7 @@ function renderHomepage(){
       <div class="hp-logo"><img src="https://themoleclinic.co.uk/wp-content/uploads/2025/02/MoleClinic-Ver-White2.png" alt="The Mole Clinic" style="height:60px;width:auto;display:block;"><button class="hp-reset-link" onclick="resetProfile()">Reset profile</button></div>
       <div class="hp-greeting">${getGreeting()}, ${p.name||'there'}</div>
       <div class="hp-meta">
-        <div class="hp-date">${formatDateLong(new Date())}${partnerInfo?` &middot; via ${partnerInfo.brandName}`:''}</div>
+        <div class="hp-date">${formatDateLong(new Date())}${partnerInfo?` &middot; via ${partnerInfo.brandName}`:(p.campaignCode?` &middot; campaign ${p.campaignCode}`:'')}</div>
         ${cityDisplay?`<div class="hp-location">&#128205; <span id="hp-city">${cityDisplay}</span></div>`:
           `<div class="hp-location" id="hp-city-wrap" style="display:none">&#128205; <span id="hp-city"></span></div>`}
       </div>
@@ -1689,7 +1787,7 @@ function renderHomepage(){
       <div class="travel-banner-title">Just been away? &#9728;&#65039;</div>
       <div class="travel-banner-body">Time to book your post-holiday skin check. Sun exposure abroad is one of the biggest risk factors for skin cancer.</div>
       <div class="travel-banner-actions">
-        <button class="travel-banner-book" onclick="window.open('https://www.themoleclinic.co.uk/book','_blank')">Book a Mole Check &#8594;</button>
+        <button class="travel-banner-book" onclick="openBooking('skinCheck')">Book a Skin Check &#8594;</button>
         <button class="travel-banner-dismiss" onclick="dismissTravelBanner()">Remind me later</button>
       </div></div>`:''}
     <div class="hp-content">
@@ -1703,14 +1801,16 @@ function renderHomepage(){
         <div class="collapsible-body ${st.profileExpanded?'open':''}" id="profileCollapse">
           <div class="collapsible-inner">
             <div class="card" style="margin-bottom:12px">
-              <div class="hp-gauge-wrap">${riskGaugeSVG}</div>
-              <div style="text-align:center;margin-top:6px"><span class="tag ${riskTagClass}" style="font-size:14px;padding:6px 18px">${p.riskLevel} Risk</span></div>
+              <div class="hp-gauge-wrap">${renderRiskBandIndicator(overall)}</div>
+              <div style="text-align:center;margin-top:6px"><span class="tag ${riskTagClass}" style="font-size:14px;padding:6px 18px">${overall} Risk</span></div>
+              ${p.cumulativeUVLevel?`<p style="font-size:12px;color:var(--tmc-gray-600);text-align:center;margin-top:8px">Melanoma pathway: <strong>${p.riskLevel}</strong> &middot; Lifetime (cumulative) UV: <strong>${p.cumulativeUVLevel}</strong></p>`:''}
+              <p class="band-category-note">This is a risk <em>category</em> based on your answers and established risk factors — it is not a probability of developing skin cancer.</p>
               <p style="font-size:13px;color:var(--tmc-gray-600);line-height:1.55;margin-top:12px;padding:0 4px">${summary}</p>
+              ${cumulativeHigh?`<div class="uv-spf-rec" style="margin-top:10px">Your answers suggest a high lifetime (cumulative) UV exposure. This is the main risk factor for the commonest skin cancers (basal and squamous cell), which a Full Body Skin Check is designed to detect — not just melanoma.</div>`:''}
             </div>
             <div class="card" style="margin-bottom:12px">
               <div class="hp-profile-row"><span class="hp-profile-label">Skin tone</span><span class="hp-profile-value">${skinTone?`<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:${skinTone.color};border:1.5px solid rgba(0,0,0,.15)"></span> Monk Tone ${p.skinType} of 10`:'-'}${p.skinAnalysis?.mst?' &#129504;':''}</span></div>
-              <div class="hp-profile-row"><span class="hp-profile-label">Age range</span><span class="hp-profile-value">${questions[0].options.find(o=>o.value===p.answers.age)?.label||'—'}</span></div>
-              <div class="hp-profile-row" style="border-bottom:none"><span class="hp-profile-label">Risk score</span><span class="hp-profile-value">${p.riskScore}/100</span></div>
+              <div class="hp-profile-row" style="border-bottom:none"><span class="hp-profile-label">Age range</span><span class="hp-profile-value">${questions[0].options.find(o=>o.value===p.answers.age)?.label||'—'}</span></div>
             </div>
             <p class="label">Key risk factors</p>
             <div class="card">${factors.map(f=>`<div class="risk-factor-item"><div class="risk-factor-dot"></div><span>${f}</span></div>`).join('')}</div>
@@ -1721,7 +1821,7 @@ function renderHomepage(){
       <div class="rec-card">${recs.length?recs.map(r=>`<div class="rec-item"><div class="rec-dot"></div><span>${r}</span></div>`).join(''):'<div class="rec-item"><div class="rec-dot"></div><span>Continue applying SPF daily and book an annual professional skin check.</span></div>'}</div>
       <div class="hp-section-label" style="margin-top:20px">Recommended Service</div>
       ${(()=>{
-        const rec=p.serviceRecommendation||getServiceRecommendation(p.answers);
+        const rec=p.serviceRecommendation||getServiceRecommendation(p.answers,p.cumulativeUVLevel);
         const isUrgent=rec.primary==='fbsc_urgent';
         const isMoleMap=rec.primary==='mole_mapping';
         const wrapStyle=isUrgent?'background:#00635a;color:white;':isMoleMap?'background:#1a2e2e;color:white;':'background:white;border:2px solid var(--tmc-teal);';
@@ -1740,27 +1840,36 @@ function renderHomepage(){
             <div class="svc-tile${tile1Primary?' svc-tile-primary':''}">
               <div class="svc-tile-name">Full Body Skin Check</div>
               <div class="svc-tile-desc">A head-to-toe professional assessment of all skin and moles.</div>
-              <button class="svc-tile-btn" onclick="window.open('https://www.themoleclinic.co.uk/book','_blank')">Book &#8594;</button>
+              <button class="svc-tile-btn" onclick="openBooking('skinCheck')">Book &#8594;</button>
             </div>
             <div class="svc-tile${tile2Primary?' svc-tile-primary':''}">
               <div class="svc-tile-name">Mole Mapping</div>
-              <div class="svc-tile-desc">Comprehensive digital mapping and monitoring of all moles.</div>
-              <button class="svc-tile-btn" onclick="window.open('https://www.themoleclinic.co.uk/book','_blank')">Book &#8594;</button>
+              <div class="svc-tile-desc">Comprehensive digital mapping and monitoring of all moles — includes a Full Body Skin Check.</div>
+              <button class="svc-tile-btn" onclick="openBooking('moleMapping')">Book &#8594;</button>
             </div>
             <div class="svc-tile">
               <div class="svc-tile-name">Single Mole Report</div>
               <div class="svc-tile-desc">A professional assessment of one specific mole.</div>
-              <button class="svc-tile-btn" onclick="window.open('https://www.themoleclinic.co.uk/book','_blank')">Book &#8594;</button>
+              <button class="svc-tile-btn" onclick="openBooking('singleMole')">Book &#8594;</button>
             </div>
           </div>
-          <p ${disclaimer}>All services are provided by qualified dermatologists and skin cancer specialists. This tool provides guidance only and does not replace a clinical assessment.</p>
+          <p ${disclaimer}>This tool provides guidance only and does not replace a clinical assessment.</p>
         </div>`;
       })()}
       <div class="hp-section-label" style="margin-top:20px">Book a Check</div>
       <div class="book-card">
         <div class="book-card-row"><span class="book-card-label">Your last check</span><span class="book-card-value">${p.lastCheckDate||'Not recorded'}</span></div>
         <div class="book-card-row"><span class="book-card-label">TMC recommends</span><span class="book-card-value"><span class="freq-badge ${freqClass}">${checkFreq}</span></span></div>
-        ${(()=>{const rec=p.serviceRecommendation||getServiceRecommendation(p.answers);return rec.urgency==='urgent'?`<div class="urgent-notice">Based on your answers, we recommend booking as soon as possible.</div><button class="book-btn-urgent" onclick="window.open('https://www.themoleclinic.co.uk/book','_blank')">Book at The Mole Clinic &#8594;</button>`:`<button class="book-btn-hp" onclick="window.open('https://www.themoleclinic.co.uk/book','_blank')">Book at The Mole Clinic &#8594;</button>`;})()}
+        <div id="nearest-clinic-block"></div>
+        ${(()=>{const rec=p.serviceRecommendation||getServiceRecommendation(p.answers,p.cumulativeUVLevel);const key=bookingKeyForRec(rec);return rec.urgency==='urgent'?`<div class="urgent-notice">Based on your answers, we recommend booking as soon as possible.</div><button class="book-btn-urgent" onclick="openBooking('${key}')">Book at The Mole Clinic &#8594;</button>`:`<button class="book-btn-hp" onclick="openBooking('${key}')">Book at The Mole Clinic &#8594;</button>`;})()}
+      </div>
+      <div class="card" style="margin-top:12px;text-align:center">
+        <p style="font-size:14px;color:var(--tmc-navy);font-weight:600">Not ready to book yet?</p>
+        <p style="font-size:13px;color:var(--tmc-gray-600);margin-top:4px;line-height:1.5">That's fine — your results are saved on this device.</p>
+        <div style="display:flex;gap:10px;margin-top:12px">
+          <button class="btn-secondary" style="flex:1;padding:11px 12px;font-size:14px" onclick="emailResultsDraft()">Email me my results</button>
+          <button class="btn-ghost" style="flex:1" onclick="doneForNow()">Done for now</button>
+        </div>
       </div>
       <div style="margin-top:20px">
         <div class="collapsible-header" onclick="toggleMethodology()">
@@ -1771,14 +1880,18 @@ function renderHomepage(){
           <div class="methodology-section">
             <div class="methodology-inner">
               <div class="ref-item"><strong>Google Monk Skin Tone Scale (MST)</strong>Ellis Monk, Harvard University / Google, 2019. 10-point scale representing the full range of human skin tones. Skin tone is classified in this app by pixel sampling from the captured arm photo, matched to official Google MST hex values by Euclidean distance in RGB space — providing objective colour measurement rather than AI visual estimation.</div>
-              <div class="ref-item"><strong>Gandini et al. (2005) — Meta-analysis of risk factors for cutaneous melanoma</strong>European Journal of Cancer, 41(1), 28-44. First-degree relative with melanoma: RR 2.24. Very fair skin (Fitzpatrick I–II): RR 2.09. Sunbed use, sunburn history, outdoor UV exposure weights all derived from this meta-analysis.</div>
+              <div class="ref-item"><strong>Gandini et al. (2005) — Meta-analysis of risk factors for cutaneous melanoma</strong>European Journal of Cancer, 41(1), 28-44. First-degree relative with melanoma: RR 2.24. Very fair skin (Fitzpatrick I–II): RR 2.09. Sunbed use, sunburn history and UV exposure weights derived from this meta-analysis. Notably, intermittent exposure raises melanoma risk (OR ≈ 1.6) while chronic/occupational exposure does not (OR ≈ 0.95) — the basis for keeping the cumulative UV dimension separate from the melanoma score.</div>
               <div class="ref-item"><strong>Tucker et al. (1997) — Mole count as independent risk factor</strong>Journal of the National Cancer Institute. 50+ moles confers RR 4.8 versus fewer than 15 moles. Strongest modifiable risk predictor after family history.</div>
               <div class="ref-item"><strong>Bataille et al. (2015) — Arm Mole Count (King's College London)</strong>British Journal of Dermatology. DOI: 10.1111/bjd.14119. Mole count on the right arm predicts total body mole burden. 7–10 arm moles = ~50+ body moles; 11+ arm moles = elevated melanoma risk indicator. Used here to map AI mole count to body mole estimate.</div>
               <div class="ref-item"><strong>Bradford et al. (2010) — Second primary melanoma risk</strong>Journal of the National Cancer Institute. Previous melanoma diagnosis: RR 8.5 for second primary melanoma. Informs the elevated weight given to personal history of skin cancer.</div>
               <div class="ref-item"><strong>IARC Working Group (2006) — Sunbed carcinogenicity</strong>Lancet Oncology. Sunbed use before age 35 increases melanoma risk by 75% (RR 1.75). WHO classified sunbeds as Group 1 carcinogens (definitively carcinogenic to humans).</div>
               <div class="ref-item"><strong>Green et al. (1999) — Daily sunscreen and melanoma prevention</strong>Lancet. Randomised controlled trial (Queensland, Australia). Daily SPF 15 sunscreen reduces melanoma incidence by ~50% over 10 years. Informs the protective weighting applied to consistent sunscreen use.</div>
               <div class="ref-item"><strong>Friedman et al. (1985) — ABCDE criteria</strong>JAMA. The ABCDE rule (Asymmetry, Border, Colour, Diameter, Evolving) for clinical melanoma recognition. Each positive criterion is independently associated with malignant features; multiple criteria compound risk substantially.</div>
-              <div class="ref-item"><strong>EADO UV Protection Guidelines</strong>European Association of Dermato-Oncology. Sun protection recommendations stratified by UV Index, implemented as the five-band EADO UV Protection Scale in this app.</div>
+              <div class="ref-item"><strong>EADO UV Protection Guidelines</strong>European Association of Dermato-Oncology. Sun protection recommendations stratified by UV Index, implemented as the five-band EADO UV Protection Scale in this app. Priority order: avoid intentional tanning and sunbeds; shade and protective clothing as primary protection; sunscreen (SPF 30–50+, UVA label) as a supplementary measure for uncovered skin, needed only when the UV index is 3 or above.</div>
+              <div class="ref-item"><strong>Brochez et al. (2026) — Messages for ultraviolet-radiation protection to fair-skinned populations</strong>Journal of the European Academy of Dermatology and Venereology, 40, 576–582. DOI: 10.1111/jdv.70148. EADO/EuroMelanoma/EuroSkin patient leaflet underpinning this app's UV-protection copy, including the UV-index-3 threshold and "skin damage from UV exposure builds up over time… even if you don't get sunburn". Draws on the consensus paper: <em>Skin cancers are the most frequent cancers in fair-skinned populations, but we can prevent them</em>, European Journal of Cancer 2024, 204, 114074.</div>
+              <div class="ref-item"><strong>Whiteman et al. — Divergent-pathway model of cutaneous melanoma</strong>Two largely independent UV-exposure routes: an intermittent/recreational pathway (sunburns, holidays, sunbeds, high naevus counts) associated with melanoma, and a chronic/cumulative pathway (lifetime UV dose) associated with keratinocyte cancers and lentigo maligna. This app scores the two pathways separately and reports the higher band.</div>
+              <div class="ref-item"><strong>WHO — Ultraviolet radiation and skin cancer (Q&amp;A)</strong>World Health Organization. Non-melanoma skin cancers occur on chronically exposed sites, implying long-term repeated UV exposure as a major causal factor; the role of cumulative sun exposure in malignant melanoma is equivocal, but NMSC history and solar keratoses — markers of cumulative exposure — are associated with higher melanoma risk. Basis for the cumulative UV dimension and the UV-index-3 protection threshold.</div>
+              <div class="ref-item"><strong>Cancer Research UK — Risks and causes of melanoma</strong>People exposed to strong sunlight intermittently (e.g. on holiday) are at greater melanoma risk than those regularly exposed, such as outdoor workers — supporting the separation of intermittent (melanoma) and cumulative (keratinocyte) pathways in this app.</div>
               <div class="ref-item"><strong>NHS Skin Cancer Prevention Guidelines</strong>NHS England. Evidence-based guidance on sun protection, risk factors, and early detection. Informs check frequencies and daily SPF advice throughout this app.</div>
               <div class="ref-item"><strong>Bias-Corrected Risk Weighting — Gadare et al., MIT (2026)</strong>AI models and risk tools trained predominantly on lighter skin tones systematically underestimate risk for darker tones. This app applies corrective adjustments: Monk Tones 1–3 receive a one-level-up SPF recommendation, Tones 7–10 receive an equality-of-risk note, and the risk scoring does not reduce scores for darker skin tones.</div>
               <div class="ref-item"><strong>YCbCr Skin Pixel Detection (Sobottka &amp; Pitas 1996; Kolkur et al. 2017)</strong>Skin pixel detection uses YCbCr colour space thresholds (Cb=[77,127], Cr=[133,173]) to exclude background, clothing and non-skin pixels before skin tone calculation. These thresholds hold across all human skin tones — from very fair to very dark — making them robust across the full Monk scale. Sources: Sobottka &amp; Pitas (1996); Phung et al. (2005); Kolkur et al. (2017).</div>
@@ -1787,7 +1900,7 @@ function renderHomepage(){
           </div>
         </div>
       </div>
-      <div class="hp-footer"><p>v0.3 &middot; <a href="https://themoleclinic.co.uk" target="_blank">The Mole Clinic</a></p></div>
+      <div class="hp-footer"><p>v0.4 &middot; <a href="#" onclick="openExternal('https://themoleclinic.co.uk');return false">The Mole Clinic</a></p></div>
     </div>
     ${window.location.search.includes('dev=1')?`<div class="dev-toolbar"><button onclick="devSimulateHolidayReturn()">&#127757; Simulate holiday return</button><button onclick="devResetTravel()">&#128260; Reset travel data</button></div>`:''}
   </div>`;
@@ -1798,33 +1911,30 @@ function toggleProfile(){
   const col=document.getElementById('profileCollapse'),chev=document.getElementById('profileChevron');
   if(col)col.classList.toggle('open',st.profileExpanded);
   if(chev)chev.classList.toggle('open',st.profileExpanded);
-  if(st.profileExpanded)setTimeout(()=>animateRiskGauge(),150);
 }
 function toggleMethodology(){
   const col=document.getElementById('methCollapse'),chev=document.getElementById('methChevron');
   if(col){const open=col.classList.toggle('open');if(chev)chev.classList.toggle('open',open);}
 }
-function animateRiskGauge(){
-  const fill=document.getElementById('hpGaugeFill'),scoreEl=document.getElementById('hpGaugeScore'),profile=st.profile;
-  if(!fill||!scoreEl||!profile)return;
-  const score=profile.riskScore||0;
-  fill.style.strokeDashoffset=283*(1-Math.min(score/100,1));
-  let cur=0;
-  const timer=setInterval(()=>{cur++;scoreEl.textContent=cur;if(cur>=score){clearInterval(timer);scoreEl.textContent=score;}},1600/Math.max(score,1));
+// Four-segment band indicator with the user's band highlighted (feedback 1.5)
+function renderRiskBandIndicator(band){
+  const bands=['LOW','MODERATE','HIGH','VERY HIGH'];
+  const cls={LOW:'band-low',MODERATE:'band-moderate',HIGH:'band-high','VERY HIGH':'band-veryhigh'};
+  return`<div class="band-indicator">${bands.map(b=>`<div class="band-seg ${b===band?cls[b]:''}">${b}</div>`).join('')}</div>`;
 }
-function animateRiskGaugeIfOpen(){if(st.profileExpanded)animateRiskGauge();}
 // ===== ASYNC HOMEPAGE INIT =====
 function updateWeatherUI(wd,geo){
   const hour=new Date().getHours(),isPeak=hour>=11&&hour<=15;
-  const band=getUVBand(wd.uv),spf=getPersonalisedSPF(wd.uv,st.profile.skinType),showPeak=isPeak&&wd.uv>=3;
+  const uvR=Math.round(wd.uv);
+  const band=getUVBand(uvR),spf=getPersonalisedSPF(wd.uv,st.profile.skinType),showPeak=isPeak&&uvR>=3;
   const loadEl=document.getElementById('hp-uv-loading'),dataEl=document.getElementById('hp-uv-data');
   if(loadEl)loadEl.style.display='none';if(dataEl)dataEl.style.display='block';
   const gaugeEl=document.getElementById('hp-uv-gauge');if(gaugeEl)gaugeEl.innerHTML=renderUVGaugeSVG(wd.uv);
-  const valEl=document.getElementById('hp-uv-value');if(valEl)valEl.textContent=Math.round(wd.uv);
+  const valEl=document.getElementById('hp-uv-value');if(valEl)valEl.textContent=uvR;
   const lvlEl=document.getElementById('hp-uv-level');
   if(lvlEl){lvlEl.textContent=band.level;lvlEl.style.background=band.bg;lvlEl.style.color=band.text;lvlEl.style.display='block';}
   const spfEl=document.getElementById('hp-spf-msg');
-  if(spfEl){const spfAction=spf.spf?(spf.msg.replace(/^SPF [^,]+,\s*/,'')||spf.msg).replace(/^./,c=>c.toUpperCase()):'';spfEl.style.display='block';spfEl.innerHTML=spf.spf?`Based on your current location, the current weather and your skin profile, we recommend <strong>SPF ${spf.spf}</strong> today. ${spfAction}.`:'No sun protection required at current UV levels.';if(spf.note)spfEl.innerHTML+=`<div class="uv-spf-note">${spf.note}</div>`;}
+  if(spfEl){spfEl.style.display='block';spfEl.innerHTML=buildSpfRecHtml(spf);}
   const peakEl=document.getElementById('hp-peak-uv');
   if(peakEl){peakEl.style.display=showPeak?'block':'none';if(showPeak)peakEl.innerHTML='&#9728;&#65039; You are in the peak UV window right now (11:00–15:00)';}
   const wxEl=document.getElementById('hp-weather-summary');
@@ -1874,18 +1984,28 @@ async function initHomepageAsync(){
 }
 // ===== PROFILE MANAGEMENT =====
 function buildProfile(){
-  const serviceRecommendation=getServiceRecommendation(st.answers);
-  const cohortResult=detectCohort(st.email,st.inviteCode||'');
-  const cohort=cohortResult.cohort||'consumer';
+  const serviceRecommendation=getServiceRecommendation(st.answers,st.cumulativeUVLevel);
+  // campaignCode (feedback 1.13): optional B2B campaign/organisation tag,
+  // stamped on the saved result and the emailed summary so a future phase
+  // can aggregate de-identified outcomes per employer/event. There is NO
+  // server-side reporting in this version — results stay on the device.
+  const campaignCode=(st.campaignCode||'').trim().toUpperCase();
+  // Gate mode: cohort requires domain+code to agree (invalid combos can't
+  // pass the email screen). Default mode: code alone applies co-branding.
+  const cohort=PARTNER_GATE_MODE
+    ?(detectCohortStrict(st.email,campaignCode).cohort||'consumer')
+    :(detectPartnerFromCode(campaignCode)||'consumer');
   const partnerInfo=(cohort!=='consumer'&&PARTNERS[cohort])?PARTNERS[cohort]:null;
   return{
-    version:'0.3',name:st.name,email:st.email,postcode:st.postcode,
-    inviteCode:st.inviteCode||'',cohort,partnerInfo,
+    version:'0.4',name:st.name,email:st.email,postcode:st.postcode,
+    campaignCode,cohort,partnerInfo,
     consentData:st.consentData,consentMarketing:st.consentMarketing,
     consentLocation:st.consentLocation,consentTravel:st.consentTravel,
     skinType:st.skinType,skinAnalysis:st.skinAnalysis||null,
     answers:{...st.answers},abcdeAnswers:{...st.abcdeAnswers},
     riskScore:st.riskScore,riskLevel:st.riskLevel,
+    cumulativeUVScore:st.cumulativeUVScore,cumulativeUVLevel:st.cumulativeUVLevel,
+    overallRiskLevel:st.overallRiskLevel,
     serviceRecommendation,
     lat:st.lat,lon:st.lon,city:st.city,country:st.country,country_code:st.country_code,
     homeCountry:st.country_code||(st.postcode?'gb':''),locationTimestamp:st.lat?Date.now():null,
@@ -1893,7 +2013,14 @@ function buildProfile(){
   };
 }
 function finishOnboarding(){
-  st.riskScore=calculateRiskScore(st.answers,st.abcdeAnswers,st.skinType,st.skinAnalysis);st.riskLevel=getRiskLevel(st.riskScore);navigate('loading');
+  // Two independent pathways (feedback 1.11): the validated melanoma score
+  // and the cumulative UV score never mix; only the bands combine
+  st.riskScore=calculateRiskScore(st.answers,st.abcdeAnswers,st.skinType,st.skinAnalysis);
+  st.riskLevel=getRiskLevel(st.riskScore);
+  st.cumulativeUVScore=calculateCumulativeUVScore(st.answers);
+  st.cumulativeUVLevel=getCumulativeUVLevel(st.cumulativeUVScore);
+  st.overallRiskLevel=combineRiskBands(st.riskLevel,st.cumulativeUVLevel);
+  navigate('loading');
 }
 function startLoadingMessages(){
   const msgs=['Analysing your risk profile…','Comparing against UK skin cancer risk data…','Identifying your key risk factors…','Calculating personalised UV adjustments…','Preparing your Skin Safety Dashboard…'];
@@ -1904,6 +2031,39 @@ function startLoadingMessages(){
   },900);
 }
 function dismissTravelBanner(){setTravelDismissed();st.showTravelBanner=false;const b=document.querySelector('.travel-banner');if(b)b.remove();}
+// "Not ready to book" exit path (feedback 1.7) — no guilt-trip copy.
+// TODO: replace the mailto draft with a proper server-side send once a
+// backend exists; there is no backend in v0.4.
+function emailResultsDraft(){
+  const p=st.profile;if(!p)return;
+  const rec=p.serviceRecommendation||getServiceRecommendation(p.answers,p.cumulativeUVLevel);
+  const factors=getKeyRiskFactorBullets(p.answers,p.skinType,p.abcdeAnswers);
+  const overall=p.overallRiskLevel||p.riskLevel;
+  const lines=[
+    'TMC SkinCheck — your results summary',
+    `Date: ${formatDateLong(new Date())}`,
+    p.name?`Name: ${p.name}`:null,
+    p.campaignCode?`Campaign code: ${p.campaignCode}`:null,
+    '',
+    `Overall risk category: ${overall}`,
+    p.cumulativeUVLevel?`- Melanoma pathway: ${p.riskLevel}`:null,
+    p.cumulativeUVLevel?`- Lifetime (cumulative) UV: ${p.cumulativeUVLevel}`:null,
+    '',
+    'Key factors:',
+    ...factors.map(f=>`- ${f}`),
+    '',
+    `Recommended service: ${rec.title}`,
+    `Recommended check frequency: ${getCheckFrequency(overall)}`,
+    `Book online: ${BOOK_URLS[bookingKeyForRec(rec)]}`,
+    '',
+    'This is a risk category based on your answers — not a probability of developing skin cancer, and not a medical diagnosis.',
+  ].filter(l=>l!=null);
+  window.location.href=`mailto:${encodeURIComponent(p.email||'')}?subject=${encodeURIComponent('Your TMC SkinCheck results')}&body=${encodeURIComponent(lines.join('\n'))}`;
+}
+function doneForNow(){
+  window.scrollTo({top:0,behavior:'smooth'});
+  showToast('Your results are saved on this device.');
+}
 function showPostcodeUVError(p){
   const loadEl=document.getElementById('hp-uv-loading'),dataEl=document.getElementById('hp-uv-data');
   if(loadEl)loadEl.style.display='none';
@@ -1918,7 +2078,7 @@ async function retryPostcodeUV(){
   if(coords){try{const wd=await fetchWeatherAndUV(coords.lat,coords.lon);if(wd){updateWeatherUI(wd,{city:`Based on your postcode (${p.postcode.toUpperCase()})`});return;}}catch(e){}}
   showPostcodeUVError(p);
 }
-function resetProfile(){if(confirm('This will clear your profile and restart the questionnaire. Are you sure?')){clearProfile();stopCamera();window.activeCameraStream=null;Object.assign(st,{profile:null,screen:'welcome',history:['welcome'],weatherData:null,currentCity:'',skinAnalysis:null,capturedPhoto:null,cameraAnimFrame:null});render();}}
+function resetProfile(){if(confirm('This will clear your profile and restart the questionnaire. Are you sure?')){clearProfile();stopCamera();window.activeCameraStream=null;Object.assign(st,{profile:null,screen:'welcome',history:['welcome'],weatherData:null,currentCity:'',skinAnalysis:null,capturedPhoto:null,cameraAnimFrame:null,toneRetryDone:false,skinType:null});render();}}
 function afterLocationConsent(){if(st.consentLocation)navigate('consent_travel');else navigate('consent_notifications');}
 // ===== MAIN RENDER =====
 function render(){
@@ -1943,22 +2103,26 @@ function render(){
   app.innerHTML=`<div class="${dirClass}">${html}</div>`;
   bindEvents();
   if(st.screen==='loading')startLoadingMessages();
-  if(st.screen==='homepage')setTimeout(()=>{animateRiskGaugeIfOpen();initHomepageAsync();},100);
+  if(st.screen==='homepage')setTimeout(()=>{initHomepageAsync();initNearestClinicAsync();},100);
 }
 // ===== EVENT BINDING =====
 function bindEvents(){
-  // Email screen
-  const nameIn=document.getElementById('nameInput'),emailIn=document.getElementById('emailInput'),postIn=document.getElementById('postcodeInput'),inviteIn=document.getElementById('inviteInput'),emailNext=document.getElementById('emailNext');
+  // Email screen — the campaign code is additive and never gates the flow
+  // (feedback 1.13); only nonsense characters are rejected
+  const nameIn=document.getElementById('nameInput'),emailIn=document.getElementById('emailInput'),postIn=document.getElementById('postcodeInput'),campaignIn=document.getElementById('campaignInput'),emailNext=document.getElementById('emailNext');
   if(nameIn&&emailIn&&postIn&&emailNext){
     const chk=()=>{
-      st.name=nameIn.value.trim();st.email=emailIn.value.trim();st.postcode=postIn.value.trim();st.inviteCode=inviteIn?inviteIn.value.trim():'';
+      st.name=nameIn.value.trim();st.email=emailIn.value.trim();st.postcode=postIn.value.trim();st.campaignCode=campaignIn?campaignIn.value.trim():'';
       emailNext.disabled=!(st.name&&st.email.includes('@')&&st.email.includes('.')&&st.postcode.length>=2);
       const existing=document.getElementById('cohortError');if(existing)existing.remove();
     };
-    nameIn.addEventListener('input',chk);emailIn.addEventListener('input',chk);postIn.addEventListener('input',chk);if(inviteIn)inviteIn.addEventListener('input',chk);
+    nameIn.addEventListener('input',chk);emailIn.addEventListener('input',chk);postIn.addEventListener('input',chk);if(campaignIn)campaignIn.addEventListener('input',chk);
     emailNext.addEventListener('click',()=>{
-      const result=detectCohort(st.email,st.inviteCode||'');
-      if(!result.valid){showDetailsError(result.error);return;}
+      if(!validateCampaignCode(st.campaignCode)){showDetailsError('Campaign codes can only contain letters, numbers, spaces and hyphens (up to 32 characters). Check your code or leave it blank.');return;}
+      if(PARTNER_GATE_MODE){
+        const result=detectCohortStrict(st.email,st.campaignCode||'');
+        if(!result.valid){showDetailsError(result.error);return;}
+      }
       navigate('consent');
     });
     chk();
@@ -1968,7 +2132,9 @@ function bindEvents(){
   if(consentDataEl)consentDataEl.addEventListener('click',()=>{st.consentData=!st.consentData;render();});
   if(consentMktEl)consentMktEl.addEventListener('click',()=>{st.consentMarketing=!st.consentMarketing;render();});
   if(consentNext)consentNext.addEventListener('click',()=>navigate('arm_camera'));
-  // Questionnaire screen
+  // Questionnaire screen — answer selection updates the DOM in place rather
+  // than re-rendering the screen, so the scroll position never jumps
+  // (feedback 1.8, Chrome scroll-jump on answering)
   document.querySelectorAll('.option-card[data-answer]').forEach(c=>c.addEventListener('click',()=>{
     const q=questions[st.currentQuestion];
     const val=c.dataset.answer;
@@ -1984,13 +2150,13 @@ function bindEvents(){
     }else{
       st.answers[q.id]=val;
     }
-    render();
+    refreshQuestionUI();
   }));
   const questionNext=document.getElementById('questionNext');
   if(questionNext)questionNext.addEventListener('click',()=>{
     let next=st.currentQuestion+1;
     while(next<questions.length&&shouldSkipQuestion(questions[next]))next++;
-    if(next<questions.length){st.currentQuestion=next;render();}else navigate('consent_location');
+    if(next<questions.length){st.currentQuestion=next;window.scrollTo(0,0);render();}else navigate('consent_location');
   });
   // ABCDE screen (legacy — kept for back-nav compatibility)
   document.querySelectorAll('[data-abcde]').forEach(c=>c.addEventListener('click',()=>{st.abcdeAnswers[c.dataset.abcde]=!st.abcdeAnswers[c.dataset.abcde];render();}));
@@ -2033,7 +2199,9 @@ function devResetTravel(){
 // ===== INIT =====
 function init(){
   const p=getProfile();
-  if(p&&p.version==='0.3'){
+  // v0.4 adds the cumulative UV dimension (two new questions) — older
+  // profiles lack those answers, so they restart the flow
+  if(p&&p.version==='0.4'){
     st.profile=p;st.screen='homepage';st.history=['homepage'];
     if(p.awayFromHome&&shouldShowTravelBanner())st.showTravelBanner=true;
     render();
