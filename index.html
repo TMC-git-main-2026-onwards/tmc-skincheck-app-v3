@@ -374,9 +374,9 @@ const questions=[
     {value:'yes',label:'Yes'},{value:'no',label:'No'},{value:'not_sure',label:"I'm not sure"}]},
   {id:'sunbed_use',question:'Have you ever used tanning beds or sunbeds, especially before the age of 35?',options:[
     {value:'yes',label:'Yes'},{value:'no',label:'No'}]},
-  {id:'new_changing_lesion',question:'Have you noticed a new or changing mark, a persistent spot, or an area of skin that looks or feels different?',options:[
+  {id:'new_changing_lesion',education:true,question:'Have you noticed a new or changing mark, a persistent spot, or an area of skin that looks or feels different?',options:[
     {value:'yes',label:'Yes'},{value:'no',label:'No'},{value:'not_sure',label:"I'm not sure"}]},
-  {id:'lesion_symptoms',
+  {id:'lesion_symptoms',education:true,
     question:'Have you noticed any of the following in a mark, spot, or area on your skin?',
     instruction:'Select all that apply',
     multiselect:true,
@@ -1284,12 +1284,49 @@ function renderQuestionnaire(){
       <h2 class="title-lg">${q.question}</h2>
       ${q.subtitle?`<p class="subtitle-sm">${q.subtitle}</p>`:''}
       ${q.instruction?`<p class="subtitle-sm" style="font-style:italic">${q.instruction}</p>`:''}
+      ${q.education?renderMoleEducationPanel():''}
       <div style="margin-top:20px">${optionsHtml}</div>
       ${nudge}
     </div>
     <div class="bottom-action"><button class="btn-primary" id="questionNext" ${isDisabled?'disabled':''}>${isLastVis?'Continue &#8594;':'Next Question &#8594;'}</button></div>
     ${renderFooter()}
   </div>`;
+}
+// Collapsible visual education panel for the lesion questions (feedback 1.9).
+// Simple illustrative SVGs, not photos — avoids both copyright and alarm.
+// Collapsed by default so it doesn't lengthen the questionnaire flow.
+function renderMoleEducationPanel(){
+  const typicalSVG=`<svg viewBox="0 0 120 100" width="100%" height="84" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A typical mole: round with even colour and a smooth edge">
+    <rect x="0" y="0" width="120" height="100" rx="10" fill="#f6e7d8"/>
+    <ellipse cx="60" cy="50" rx="24" ry="22" fill="#8d6748"/>
+    <ellipse cx="60" cy="50" rx="24" ry="22" fill="none" stroke="#7a573c" stroke-width="1.5"/>
+  </svg>`;
+  const suspiciousSVG=`<svg viewBox="0 0 120 100" width="100%" height="84" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A suspicious mole: asymmetric with ragged edges and mixed shades">
+    <rect x="0" y="0" width="120" height="100" rx="10" fill="#f6e7d8"/>
+    <path d="M38,54 C33,40 46,27 59,31 C68,22 85,28 87,41 C99,45 95,60 83,62 C82,74 64,80 54,70 C42,75 34,66 38,54 Z" fill="#6b4630"/>
+    <path d="M52,40 C60,34 72,38 74,47 C76,55 66,60 58,57 C50,55 47,46 52,40 Z" fill="#2e1c12"/>
+    <path d="M66,56 C73,53 80,57 79,63 C77,69 68,69 65,64 Z" fill="#a0522d"/>
+    <path d="M38,54 C33,40 46,27 59,31 C68,22 85,28 87,41 C99,45 95,60 83,62 C82,74 64,80 54,70 C42,75 34,66 38,54 Z" fill="none" stroke="#4a2f1d" stroke-width="1.5" stroke-dasharray="3,2"/>
+  </svg>`;
+  return`<div style="margin-top:14px">
+    <div class="collapsible-header" onclick="toggleMoleEducation()">
+      <div class="collapsible-title">&#128269; What does a suspicious mole look like?</div>
+      <div class="collapsible-chevron" id="eduChevron">&#9660;</div>
+    </div>
+    <div class="collapsible-body" id="eduCollapse">
+      <div class="collapsible-inner">
+        <div style="display:flex;gap:12px">
+          <div style="flex:1;text-align:center">${typicalSVG}<div style="font-size:12px;color:var(--tmc-gray-600);margin-top:6px;line-height:1.4"><strong style="color:#2e7d32">Typical:</strong> round, one even colour, smooth edge</div></div>
+          <div style="flex:1;text-align:center">${suspiciousSVG}<div style="font-size:12px;color:var(--tmc-gray-600);margin-top:6px;line-height:1.4"><strong style="color:#c62828">Get it checked:</strong> asymmetric, ragged border, mixed shades</div></div>
+        </div>
+        <p style="font-size:12px;color:var(--tmc-gray-600);margin-top:10px;line-height:1.5">A <strong>new</strong> mole, or one that is <strong>changing</strong>, matters more than moles that have looked the same for years.</p>
+      </div>
+    </div>
+  </div>`;
+}
+function toggleMoleEducation(){
+  const col=document.getElementById('eduCollapse'),chev=document.getElementById('eduChevron');
+  if(col){const open=col.classList.toggle('open');if(chev)chev.classList.toggle('open',open);}
 }
 // In-place questionnaire update on answer selection — no full re-render, so
 // the scroll position is preserved (feedback 1.8)
