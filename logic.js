@@ -206,6 +206,61 @@ const getRiskLevel = (score) => {
   if (score >= 25) return 'MODERATE';
   return 'LOW';
 };
+/*
+ * CUMULATIVE UV SCORING MODEL (chronic pathway) — feedback 1.11
+ *
+ * Skin cancer follows a divergent-pathway model (Whiteman et al.):
+ *  - Intermittent/recreational UV (sunburns, holidays, sunbeds, naevi)
+ *    drives MELANOMA — captured by calculateRiskScore above.
+ *  - Chronic/cumulative UV (outdoor work, sunny-climate residence, age,
+ *    photodamage) drives KERATINOCYTE cancers (BCC, SCC) and lentigo
+ *    maligna.
+ * Cumulative exposure's role in melanoma is "equivocal" (WHO UV Q&A);
+ * Gandini 2005: chronic/occupational OR ~0.95 vs intermittent OR ~1.6.
+ * So this dimension is kept SEPARATE and is never added into the
+ * validated melanoma score. The two bands combine via combineRiskBands
+ * (overall = the higher band) for the headline result only.
+ */
+const calculateCumulativeUVScore = (answers) => {
+  let score = 0;
+
+  // Age — proxy for years of accumulated dose; steeper than the melanoma
+  // model because lifetime dose is the mechanism here
+  const ageScores = {'under25':0,'25-34':4,'35-44':8,'45-54':14,'55-64':20,'65plus':26};
+  score += ageScores[answers.age] || 0;
+
+  // Outdoor occupation, banded by years — the headline cumulative-exposure
+  // group (outdoor work roughly doubles SCC risk) and the core
+  // occupational-health cohort
+  const outdoorScores = {'no':0,'under5':6,'5to15':14,'over15':22};
+  score += outdoorScores[answers.outdoor_work] || 0;
+
+  // Years resident in a high-UV country/latitude
+  const climateScores = {'no':0,'up_to_5':8,'over_5':14};
+  score += climateScores[answers.sunny_climate] || 0;
+
+  // Lifetime outdoor work/leisure (existing validated question, reused)
+  score += answers.longterm_sun_exposure === 'yes' ? 10 : 0;
+
+  // Visible photodamage (solar lentigines, actinic damage) — a direct
+  // cumulative-dose marker, weighted strongly
+  const damageScores = {'yes':16,'no':0,'not_sure':4};
+  score += damageScores[answers.sun_damage_visible] || 0;
+
+  // Prior keratinocyte cancer — WHO: NMSC history and solar keratoses are
+  // markers of cumulative exposure (and also raise melanoma risk)
+  score += answers.personal_skin_cancer_history === 'yes_nmsc' ? 20 : 0;
+
+  return Math.min(100, Math.max(0, Math.round(score)));
+};
+// Same LOW/MODERATE/HIGH/VERY HIGH thresholds, applied to the cumulative
+// dimension's own recalibrated weights above
+const getCumulativeUVLevel = getRiskLevel;
+const RISK_BAND_ORDER = ['LOW','MODERATE','HIGH','VERY HIGH'];
+// Overall headline band = the higher of the two pathway bands — a person
+// high on either pathway needs a professional check
+const combineRiskBands = (a, b) =>
+  RISK_BAND_ORDER[Math.max(RISK_BAND_ORDER.indexOf(a), RISK_BAND_ORDER.indexOf(b))] || a || b;
 function getCheckFrequency(level){
   const f={
     'LOW':'Every 2 years',
@@ -215,7 +270,11 @@ function getCheckFrequency(level){
   };
   return f[level]||'Annually';
 }
-const getServiceRecommendation = (answers) => {
+// cumulativeUVLevel (optional) adds the chronic-pathway trigger (feedback
+// 1.11): a high cumulative band routes to a Full Body Skin Check — whole-body,
+// catches keratinocyte cancers on chronically exposed sites — as distinct
+// from the mole-focused Mole Mapping route.
+const getServiceRecommendation = (answers, cumulativeUVLevel) => {
   const domainA_trigger =
     answers.mole_appearance === 'yes' ||
     answers.mole_freckle_profile === 'lots_of_moles' ||
@@ -259,6 +318,14 @@ const getServiceRecommendation = (answers) => {
       description: "You've described a new, changing or symptomatic area of skin. We recommend booking a Full Body Skin Check as soon as possible so a specialist can assess it properly. Please do not wait.",
       show_fbsc: true, show_mole_mapping: true, show_single_mole: true
     };
+  } else if (cumulativeUVLevel === 'HIGH' || cumulativeUVLevel === 'VERY HIGH') {
+    return {
+      primary: 'fbsc',
+      urgency: 'routine',
+      title: 'Full Body Skin Check',
+      description: 'Your answers suggest a high lifetime (cumulative) UV exposure. This is the main risk factor for the commonest skin cancers (basal and squamous cell), which appear on chronically sun-exposed skin and may not look like a mole. A Full Body Skin Check is designed to detect these — not just melanoma.',
+      show_fbsc: true, show_mole_mapping: true, show_single_mole: true
+    };
   } else if (domainC_trigger) {
     return {
       primary: 'fbsc',
@@ -283,5 +350,6 @@ if (typeof module !== 'undefined' && module.exports) {
     clinics, BOOK_URLS, haversineMiles, getClinicsByDistance,
     getUVBand, getPersonalisedSPF,
     calculateRiskScore, getRiskLevel, getCheckFrequency, getServiceRecommendation,
+    calculateCumulativeUVScore, getCumulativeUVLevel, combineRiskBands, RISK_BAND_ORDER,
   };
 }

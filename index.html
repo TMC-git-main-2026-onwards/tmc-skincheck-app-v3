@@ -337,8 +337,10 @@ const skinTypes=[
   {id:7,color:'#825c43',fitzpatrickId:5,score:1},{id:8,color:'#604134',fitzpatrickId:5,score:1},
   {id:9,color:'#3a312a',fitzpatrickId:6,score:0},{id:10,color:'#15120e',fitzpatrickId:6,score:0},
 ];
-// Questionnaire — 14 questions across 5 clinical domains
-// Question set authored by Annie Meharg and Anna Grodent (TMC clinical/compliance)
+// Questionnaire — validated set authored by Annie Meharg and Anna Grodent
+// (TMC clinical/compliance) across 5 clinical domains, plus the two
+// sanctioned "Lifetime sun exposure" additions for the cumulative UV
+// dimension (feedback 1.11). Do not alter or reweight the validated items.
 const questions=[
   {id:'age',question:'What is your age range?',options:[
     {value:'under25',label:'Under 25'},{value:'25-34',label:'25–34'},
@@ -374,6 +376,23 @@ const questions=[
     {value:'yes',label:'Yes'},{value:'no',label:'No'},{value:'not_sure',label:"I'm not sure"}]},
   {id:'sunbed_use',question:'Have you ever used tanning beds or sunbeds, especially before the age of 35?',options:[
     {value:'yes',label:'Yes'},{value:'no',label:'No'}]},
+  // LIFETIME SUN EXPOSURE — cumulative/chronic pathway (feedback 1.11).
+  // These two questions feed calculateCumulativeUVScore ONLY. They are the
+  // sanctioned additions and do not alter or reweight the validated
+  // melanoma question set above.
+  {id:'outdoor_work',
+    section_heading:'LIFETIME SUN EXPOSURE — Everyday sun exposure builds up over a lifetime, even without sunburn',
+    question:'Have you ever worked outdoors for a substantial part of your working life (e.g. construction, farming, grounds or landscaping, transport, sport or leisure instruction)?',
+    options:[
+      {value:'no',label:'No'},
+      {value:'under5',label:'Yes, under 5 years'},
+      {value:'5to15',label:'Yes, 5–15 years'},
+      {value:'over15',label:'Yes, more than 15 years'}]},
+  {id:'sunny_climate',question:'Have you lived for a year or more in a country with a hot, sunny climate (e.g. Australia, southern Europe, Africa, the Middle East, parts of Asia or the Americas)?',
+    options:[
+      {value:'no',label:'No'},
+      {value:'up_to_5',label:'Yes, up to 5 years'},
+      {value:'over_5',label:'Yes, more than 5 years'}]},
   {id:'new_changing_lesion',education:true,question:'Have you noticed a new or changing mark, a persistent spot, or an area of skin that looks or feels different?',options:[
     {value:'yes',label:'Yes'},{value:'no',label:'No'},{value:'not_sure',label:"I'm not sure"}]},
   {id:'lesion_symptoms',education:true,
@@ -585,14 +604,22 @@ function shouldShowTravelBanner(){
 // ===== RISK CALCULATIONS =====
 // calculateRiskScore, getRiskLevel, getCheckFrequency and
 // getServiceRecommendation now live in logic.js
+// Bullets are labelled by pathway where exposure-related (feedback 1.11):
+// "Intermittent exposure" = melanoma pathway, "Cumulative sun exposure" =
+// chronic/keratinocyte pathway, so the two-dimension result reads coherently
 function getKeyRiskFactorBullets(answers,skinType,abcdeAnswers){
   const b=[];
+  if(answers.new_changing_lesion==='yes')b.push('New or changing skin lesion noted');
   if(answers.family_melanoma_history==='yes')b.push('Family history of melanoma');
   if(answers.personal_skin_cancer_history==='yes_melanoma')b.push('Previous melanoma diagnosis');
-  else if(answers.personal_skin_cancer_history==='yes_nmsc')b.push('Previous non-melanoma skin cancer');
-  if(answers.sunburn_history==='yes')b.push('Significant sunburn history');
-  if(answers.sunbed_use==='yes')b.push('Sunbed use');
-  if(answers.new_changing_lesion==='yes')b.push('New or changing skin lesion noted');
+  else if(answers.personal_skin_cancer_history==='yes_nmsc')b.push('Cumulative sun exposure: previous non-melanoma skin cancer');
+  if(answers.sunburn_history==='yes')b.push('Intermittent exposure: history of repeated or severe sunburn');
+  if(answers.sunbed_use==='yes')b.push('Intermittent exposure: sunbed use');
+  const owLabels={under5:'under 5 years',['5to15']:'5–15 years',over15:'more than 15 years'};
+  if(owLabels[answers.outdoor_work])b.push(`Cumulative sun exposure: ${owLabels[answers.outdoor_work]} of outdoor work`);
+  const scLabels={up_to_5:'up to 5 years',over_5:'more than 5 years'};
+  if(scLabels[answers.sunny_climate])b.push(`Cumulative sun exposure: ${scLabels[answers.sunny_climate]} living in a high-UV climate`);
+  if(answers.sun_damage_visible==='yes')b.push('Cumulative sun exposure: visible sun damage on skin');
   if(answers.mole_freckle_profile==='lots_of_moles')b.push('High mole count');
   if(answers.mole_appearance==='yes')b.push('Moles that look noticeably different from others');
   const syms=answers.lesion_symptoms;
@@ -604,11 +631,12 @@ function getKeyRiskFactorBullets(answers,skinType,abcdeAnswers){
   }
   if(skinType<=2)b.push('Very fair skin — highest UV sensitivity');
   if(b.length===0)b.push('No major risk factors identified in your profile');
-  return b.slice(0,5);
+  return b.slice(0,6);
 }
 function generateRecommendations(profile,wd){
   const recs=[];
-  const{answers,skinType,riskLevel}=profile;
+  const{answers,skinType}=profile;
+  const riskLevel=profile.overallRiskLevel||profile.riskLevel;
   const uv=wd&&wd.uv!=null?wd.uv:null;
   const hour=new Date().getHours();
   // getPersonalisedSPF is the single source of truth for SPF statements —
@@ -650,7 +678,8 @@ function getFitzpatrickLabel(monkTone){
   return'Type VI — Dark brown/black';
 }
 function getPersonalisedSummary(profile){
-  const{skinType,riskLevel,answers}=profile;
+  const{skinType,answers}=profile;
+  const riskLevel=profile.overallRiskLevel||profile.riskLevel;
   const light=skinType<=3;
   const fh=answers.family_melanoma_history==='yes';
   const cm=answers.new_changing_lesion==='yes';
@@ -671,6 +700,7 @@ const st={
   answers:{},currentQuestion:0,abcdeAnswers:{},
   consentLocation:false,consentTravel:false,lat:null,lon:null,city:'',country:'',country_code:'',
   riskScore:null,riskLevel:null,
+  cumulativeUVScore:null,cumulativeUVLevel:null,overallRiskLevel:null,
   inviteCode:'',
   profile:null,weatherData:null,currentCity:'',showTravelBanner:false,profileExpanded:true,
 };
@@ -1710,12 +1740,16 @@ function renderHomepage(){
   const wd=st.weatherData,hour=new Date().getHours();
   const recs=generateRecommendations(p,wd);
   const factors=getKeyRiskFactorBullets(p.answers,p.skinType,p.abcdeAnswers);
-  const checkFreq=getCheckFrequency(p.riskLevel);
+  // Headline band = higher of the two pathway bands (feedback 1.11);
+  // fallback to the melanoma band for any pre-cumulative profile
+  const overall=p.overallRiskLevel||p.riskLevel;
+  const cumulativeHigh=p.cumulativeUVLevel==='HIGH'||p.cumulativeUVLevel==='VERY HIGH';
+  const checkFreq=getCheckFrequency(overall);
   const fitzType=getFitzpatrickLabel(p.skinType);
   const summary=getPersonalisedSummary(p);
   const skinTone=skinTypes.find(s=>s.id===p.skinType);
-  const riskTagClass={LOW:'tag-low',MODERATE:'tag-moderate',HIGH:'tag-high','VERY HIGH':'tag-veryhigh'}[p.riskLevel]||'tag-low';
-  const freqClass={LOW:'freq-low',MODERATE:'freq-mod',HIGH:'freq-high','VERY HIGH':'freq-veryhigh'}[p.riskLevel]||'freq-low';
+  const riskTagClass={LOW:'tag-low',MODERATE:'tag-moderate',HIGH:'tag-high','VERY HIGH':'tag-veryhigh'}[overall]||'tag-low';
+  const freqClass={LOW:'freq-low',MODERATE:'freq-mod',HIGH:'freq-high','VERY HIGH':'freq-veryhigh'}[overall]||'freq-low';
   const cityDisplay=st.currentCity||p.city||'';
   // Band-only presentation — no numeric score anywhere in the UI (feedback 1.5)
   const aiBadge=p.skinAnalysis?.mst?`<div style="display:inline-flex;align-items:center;gap:6px;background:var(--tmc-teal-light);border:1px solid rgba(46,196,182,.3);border-radius:20px;padding:4px 12px;font-size:12px;color:var(--tmc-teal-dark);font-weight:600;margin-top:8px">&#129504; Skin tone detected by AI</div>`:'';
@@ -1751,10 +1785,12 @@ function renderHomepage(){
         <div class="collapsible-body ${st.profileExpanded?'open':''}" id="profileCollapse">
           <div class="collapsible-inner">
             <div class="card" style="margin-bottom:12px">
-              <div class="hp-gauge-wrap">${renderRiskBandIndicator(p.riskLevel)}</div>
-              <div style="text-align:center;margin-top:6px"><span class="tag ${riskTagClass}" style="font-size:14px;padding:6px 18px">${p.riskLevel} Risk</span></div>
+              <div class="hp-gauge-wrap">${renderRiskBandIndicator(overall)}</div>
+              <div style="text-align:center;margin-top:6px"><span class="tag ${riskTagClass}" style="font-size:14px;padding:6px 18px">${overall} Risk</span></div>
+              ${p.cumulativeUVLevel?`<p style="font-size:12px;color:var(--tmc-gray-600);text-align:center;margin-top:8px">Melanoma pathway: <strong>${p.riskLevel}</strong> &middot; Lifetime (cumulative) UV: <strong>${p.cumulativeUVLevel}</strong></p>`:''}
               <p class="band-category-note">This is a risk <em>category</em> based on your answers and established risk factors — it is not a probability of developing skin cancer.</p>
               <p style="font-size:13px;color:var(--tmc-gray-600);line-height:1.55;margin-top:12px;padding:0 4px">${summary}</p>
+              ${cumulativeHigh?`<div class="uv-spf-rec" style="margin-top:10px">Your answers suggest a high lifetime (cumulative) UV exposure. This is the main risk factor for the commonest skin cancers (basal and squamous cell), which a Full Body Skin Check is designed to detect — not just melanoma.</div>`:''}
             </div>
             <div class="card" style="margin-bottom:12px">
               <div class="hp-profile-row"><span class="hp-profile-label">Skin tone</span><span class="hp-profile-value">${skinTone?`<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:${skinTone.color};border:1.5px solid rgba(0,0,0,.15)"></span> Monk Tone ${p.skinType} of 10`:'-'}${p.skinAnalysis?.mst?' &#129504;':''}</span></div>
@@ -1769,7 +1805,7 @@ function renderHomepage(){
       <div class="rec-card">${recs.length?recs.map(r=>`<div class="rec-item"><div class="rec-dot"></div><span>${r}</span></div>`).join(''):'<div class="rec-item"><div class="rec-dot"></div><span>Continue applying SPF daily and book an annual professional skin check.</span></div>'}</div>
       <div class="hp-section-label" style="margin-top:20px">Recommended Service</div>
       ${(()=>{
-        const rec=p.serviceRecommendation||getServiceRecommendation(p.answers);
+        const rec=p.serviceRecommendation||getServiceRecommendation(p.answers,p.cumulativeUVLevel);
         const isUrgent=rec.primary==='fbsc_urgent';
         const isMoleMap=rec.primary==='mole_mapping';
         const wrapStyle=isUrgent?'background:#00635a;color:white;':isMoleMap?'background:#1a2e2e;color:white;':'background:white;border:2px solid var(--tmc-teal);';
@@ -1809,7 +1845,7 @@ function renderHomepage(){
         <div class="book-card-row"><span class="book-card-label">Your last check</span><span class="book-card-value">${p.lastCheckDate||'Not recorded'}</span></div>
         <div class="book-card-row"><span class="book-card-label">TMC recommends</span><span class="book-card-value"><span class="freq-badge ${freqClass}">${checkFreq}</span></span></div>
         <div id="nearest-clinic-block"></div>
-        ${(()=>{const rec=p.serviceRecommendation||getServiceRecommendation(p.answers);const key=bookingKeyForRec(rec);return rec.urgency==='urgent'?`<div class="urgent-notice">Based on your answers, we recommend booking as soon as possible.</div><button class="book-btn-urgent" onclick="openBooking('${key}')">Book at The Mole Clinic &#8594;</button>`:`<button class="book-btn-hp" onclick="openBooking('${key}')">Book at The Mole Clinic &#8594;</button>`;})()}
+        ${(()=>{const rec=p.serviceRecommendation||getServiceRecommendation(p.answers,p.cumulativeUVLevel);const key=bookingKeyForRec(rec);return rec.urgency==='urgent'?`<div class="urgent-notice">Based on your answers, we recommend booking as soon as possible.</div><button class="book-btn-urgent" onclick="openBooking('${key}')">Book at The Mole Clinic &#8594;</button>`:`<button class="book-btn-hp" onclick="openBooking('${key}')">Book at The Mole Clinic &#8594;</button>`;})()}
       </div>
       <div style="margin-top:20px">
         <div class="collapsible-header" onclick="toggleMethodology()">
@@ -1820,14 +1856,18 @@ function renderHomepage(){
           <div class="methodology-section">
             <div class="methodology-inner">
               <div class="ref-item"><strong>Google Monk Skin Tone Scale (MST)</strong>Ellis Monk, Harvard University / Google, 2019. 10-point scale representing the full range of human skin tones. Skin tone is classified in this app by pixel sampling from the captured arm photo, matched to official Google MST hex values by Euclidean distance in RGB space — providing objective colour measurement rather than AI visual estimation.</div>
-              <div class="ref-item"><strong>Gandini et al. (2005) — Meta-analysis of risk factors for cutaneous melanoma</strong>European Journal of Cancer, 41(1), 28-44. First-degree relative with melanoma: RR 2.24. Very fair skin (Fitzpatrick I–II): RR 2.09. Sunbed use, sunburn history, outdoor UV exposure weights all derived from this meta-analysis.</div>
+              <div class="ref-item"><strong>Gandini et al. (2005) — Meta-analysis of risk factors for cutaneous melanoma</strong>European Journal of Cancer, 41(1), 28-44. First-degree relative with melanoma: RR 2.24. Very fair skin (Fitzpatrick I–II): RR 2.09. Sunbed use, sunburn history and UV exposure weights derived from this meta-analysis. Notably, intermittent exposure raises melanoma risk (OR ≈ 1.6) while chronic/occupational exposure does not (OR ≈ 0.95) — the basis for keeping the cumulative UV dimension separate from the melanoma score.</div>
               <div class="ref-item"><strong>Tucker et al. (1997) — Mole count as independent risk factor</strong>Journal of the National Cancer Institute. 50+ moles confers RR 4.8 versus fewer than 15 moles. Strongest modifiable risk predictor after family history.</div>
               <div class="ref-item"><strong>Bataille et al. (2015) — Arm Mole Count (King's College London)</strong>British Journal of Dermatology. DOI: 10.1111/bjd.14119. Mole count on the right arm predicts total body mole burden. 7–10 arm moles = ~50+ body moles; 11+ arm moles = elevated melanoma risk indicator. Used here to map AI mole count to body mole estimate.</div>
               <div class="ref-item"><strong>Bradford et al. (2010) — Second primary melanoma risk</strong>Journal of the National Cancer Institute. Previous melanoma diagnosis: RR 8.5 for second primary melanoma. Informs the elevated weight given to personal history of skin cancer.</div>
               <div class="ref-item"><strong>IARC Working Group (2006) — Sunbed carcinogenicity</strong>Lancet Oncology. Sunbed use before age 35 increases melanoma risk by 75% (RR 1.75). WHO classified sunbeds as Group 1 carcinogens (definitively carcinogenic to humans).</div>
               <div class="ref-item"><strong>Green et al. (1999) — Daily sunscreen and melanoma prevention</strong>Lancet. Randomised controlled trial (Queensland, Australia). Daily SPF 15 sunscreen reduces melanoma incidence by ~50% over 10 years. Informs the protective weighting applied to consistent sunscreen use.</div>
               <div class="ref-item"><strong>Friedman et al. (1985) — ABCDE criteria</strong>JAMA. The ABCDE rule (Asymmetry, Border, Colour, Diameter, Evolving) for clinical melanoma recognition. Each positive criterion is independently associated with malignant features; multiple criteria compound risk substantially.</div>
-              <div class="ref-item"><strong>EADO UV Protection Guidelines</strong>European Association of Dermato-Oncology. Sun protection recommendations stratified by UV Index, implemented as the five-band EADO UV Protection Scale in this app.</div>
+              <div class="ref-item"><strong>EADO UV Protection Guidelines</strong>European Association of Dermato-Oncology. Sun protection recommendations stratified by UV Index, implemented as the five-band EADO UV Protection Scale in this app. Priority order: avoid intentional tanning and sunbeds; shade and protective clothing as primary protection; sunscreen (SPF 30–50+, UVA label) as a supplementary measure for uncovered skin, needed only when the UV index is 3 or above.</div>
+              <div class="ref-item"><strong>Brochez et al. (2026) — Messages for ultraviolet-radiation protection to fair-skinned populations</strong>Journal of the European Academy of Dermatology and Venereology, 40, 576–582. DOI: 10.1111/jdv.70148. EADO/EuroMelanoma/EuroSkin patient leaflet underpinning this app's UV-protection copy, including the UV-index-3 threshold and "skin damage from UV exposure builds up over time… even if you don't get sunburn". Draws on the consensus paper: <em>Skin cancers are the most frequent cancers in fair-skinned populations, but we can prevent them</em>, European Journal of Cancer 2024, 204, 114074.</div>
+              <div class="ref-item"><strong>Whiteman et al. — Divergent-pathway model of cutaneous melanoma</strong>Two largely independent UV-exposure routes: an intermittent/recreational pathway (sunburns, holidays, sunbeds, high naevus counts) associated with melanoma, and a chronic/cumulative pathway (lifetime UV dose) associated with keratinocyte cancers and lentigo maligna. This app scores the two pathways separately and reports the higher band.</div>
+              <div class="ref-item"><strong>WHO — Ultraviolet radiation and skin cancer (Q&amp;A)</strong>World Health Organization. Non-melanoma skin cancers occur on chronically exposed sites, implying long-term repeated UV exposure as a major causal factor; the role of cumulative sun exposure in malignant melanoma is equivocal, but NMSC history and solar keratoses — markers of cumulative exposure — are associated with higher melanoma risk. Basis for the cumulative UV dimension and the UV-index-3 protection threshold.</div>
+              <div class="ref-item"><strong>Cancer Research UK — Risks and causes of melanoma</strong>People exposed to strong sunlight intermittently (e.g. on holiday) are at greater melanoma risk than those regularly exposed, such as outdoor workers — supporting the separation of intermittent (melanoma) and cumulative (keratinocyte) pathways in this app.</div>
               <div class="ref-item"><strong>NHS Skin Cancer Prevention Guidelines</strong>NHS England. Evidence-based guidance on sun protection, risk factors, and early detection. Informs check frequencies and daily SPF advice throughout this app.</div>
               <div class="ref-item"><strong>Bias-Corrected Risk Weighting — Gadare et al., MIT (2026)</strong>AI models and risk tools trained predominantly on lighter skin tones systematically underestimate risk for darker tones. This app applies corrective adjustments: Monk Tones 1–3 receive a one-level-up SPF recommendation, Tones 7–10 receive an equality-of-risk note, and the risk scoring does not reduce scores for darker skin tones.</div>
               <div class="ref-item"><strong>YCbCr Skin Pixel Detection (Sobottka &amp; Pitas 1996; Kolkur et al. 2017)</strong>Skin pixel detection uses YCbCr colour space thresholds (Cb=[77,127], Cr=[133,173]) to exclude background, clothing and non-skin pixels before skin tone calculation. These thresholds hold across all human skin tones — from very fair to very dark — making them robust across the full Monk scale. Sources: Sobottka &amp; Pitas (1996); Phung et al. (2005); Kolkur et al. (2017).</div>
@@ -1920,18 +1960,20 @@ async function initHomepageAsync(){
 }
 // ===== PROFILE MANAGEMENT =====
 function buildProfile(){
-  const serviceRecommendation=getServiceRecommendation(st.answers);
+  const serviceRecommendation=getServiceRecommendation(st.answers,st.cumulativeUVLevel);
   const cohortResult=detectCohort(st.email,st.inviteCode||'');
   const cohort=cohortResult.cohort||'consumer';
   const partnerInfo=(cohort!=='consumer'&&PARTNERS[cohort])?PARTNERS[cohort]:null;
   return{
-    version:'0.3',name:st.name,email:st.email,postcode:st.postcode,
+    version:'0.4',name:st.name,email:st.email,postcode:st.postcode,
     inviteCode:st.inviteCode||'',cohort,partnerInfo,
     consentData:st.consentData,consentMarketing:st.consentMarketing,
     consentLocation:st.consentLocation,consentTravel:st.consentTravel,
     skinType:st.skinType,skinAnalysis:st.skinAnalysis||null,
     answers:{...st.answers},abcdeAnswers:{...st.abcdeAnswers},
     riskScore:st.riskScore,riskLevel:st.riskLevel,
+    cumulativeUVScore:st.cumulativeUVScore,cumulativeUVLevel:st.cumulativeUVLevel,
+    overallRiskLevel:st.overallRiskLevel,
     serviceRecommendation,
     lat:st.lat,lon:st.lon,city:st.city,country:st.country,country_code:st.country_code,
     homeCountry:st.country_code||(st.postcode?'gb':''),locationTimestamp:st.lat?Date.now():null,
@@ -1939,7 +1981,14 @@ function buildProfile(){
   };
 }
 function finishOnboarding(){
-  st.riskScore=calculateRiskScore(st.answers,st.abcdeAnswers,st.skinType,st.skinAnalysis);st.riskLevel=getRiskLevel(st.riskScore);navigate('loading');
+  // Two independent pathways (feedback 1.11): the validated melanoma score
+  // and the cumulative UV score never mix; only the bands combine
+  st.riskScore=calculateRiskScore(st.answers,st.abcdeAnswers,st.skinType,st.skinAnalysis);
+  st.riskLevel=getRiskLevel(st.riskScore);
+  st.cumulativeUVScore=calculateCumulativeUVScore(st.answers);
+  st.cumulativeUVLevel=getCumulativeUVLevel(st.cumulativeUVScore);
+  st.overallRiskLevel=combineRiskBands(st.riskLevel,st.cumulativeUVLevel);
+  navigate('loading');
 }
 function startLoadingMessages(){
   const msgs=['Analysing your risk profile…','Comparing against UK skin cancer risk data…','Identifying your key risk factors…','Calculating personalised UV adjustments…','Preparing your Skin Safety Dashboard…'];
@@ -2081,7 +2130,9 @@ function devResetTravel(){
 // ===== INIT =====
 function init(){
   const p=getProfile();
-  if(p&&p.version==='0.3'){
+  // v0.4 adds the cumulative UV dimension (two new questions) — older
+  // profiles lack those answers, so they restart the flow
+  if(p&&p.version==='0.4'){
     st.profile=p;st.screen='homepage';st.history=['homepage'];
     if(p.awayFromHome&&shouldShowTravelBanner())st.showTravelBanner=true;
     render();
