@@ -496,7 +496,8 @@ function renderUVGaugeSVG(uv){
   const d2r=d=>d*Math.PI/180;
   const pt=(a,rad)=>[cx+rad*Math.cos(d2r(a)),cy-rad*Math.sin(d2r(a))];
   const seg=(a1,a2,col)=>{const[x1,y1]=pt(a1,r),[x2,y2]=pt(a2,r);return`<path d="M${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r} 0 0 1 ${x2.toFixed(1)},${y2.toFixed(1)}" stroke="${col}" stroke-width="${sw}" fill="none" stroke-linecap="butt"/>`;};
-  const uvN=Math.min(Math.max(uv||0,0),12);
+  // Needle uses the same rounded UV value the UI displays (feedback 1.2)
+  const uvN=Math.min(Math.max(Math.round(uv||0),0),12);
   const na=180-(uvN/12)*180;
   const[nx,ny]=pt(na,74);
   return`<svg viewBox="0 0 220 105" width="220" height="105" xmlns="http://www.w3.org/2000/svg">
@@ -603,11 +604,20 @@ function generateRecommendations(profile,wd){
   const{answers,skinType,riskLevel}=profile;
   const uv=wd&&wd.uv!=null?wd.uv:null;
   const hour=new Date().getHours();
-  if(uv!=null&&uv>=3){
+  // getPersonalisedSPF is the single source of truth for SPF statements —
+  // never contradict the UV card (feedback 1.2)
+  if(uv!=null){
     const sp=getPersonalisedSPF(uv,skinType);
-    recs.push(`Today's UV is ${Math.round(uv)} (${getUVBand(uv).level}). ${sp.msg}${sp.spf?' — reapply every 2 hours when outdoors':''}.`);
+    if(sp.uvR>=3){
+      recs.push(`Today's UV is ${sp.uvR} (${getUVBand(sp.uvR).level}). ${sp.msg} Reapply sunscreen every 2 hours when outdoors.`);
+    }else{
+      recs.push("Today's UV is low — no sun protection required. Check the UV index before extended time outdoors; protection is needed from UV 3 (EADO/WHO).");
+    }
   }else{
-    recs.push('Apply SPF 30+ sunscreen daily — UV rays penetrate cloud cover year-round.');
+    const m=new Date().getMonth();
+    recs.push(m>=3&&m<=8
+      ?'UV data is unavailable. At this time of year UK UV often reaches 3 or more from mid-morning — check the UV index before extended time outdoors.'
+      :'UV data is unavailable. UK UV is typically low at this time of year, but check the index before extended time outdoors, winter sports or sunny trips — protection is needed from UV 3.');
   }
   if(answers.new_changing_lesion==='yes')
     recs.push('You reported a new or changing skin area. EADO guidance recommends any changing lesion be assessed by a dermatologist promptly. Do not delay booking a check.');
@@ -620,8 +630,8 @@ function generateRecommendations(profile,wd){
   if(answers.mole_freckle_profile==='lots_of_moles')
     recs.push('With a high mole count, keep a monthly photo log of any moles that change in size, shape, or colour. Use the ABCDE rule as your guide.');
   if(answers.longterm_sun_exposure==='yes')
-    recs.push('Your high outdoor UV exposure means protective clothing (UPF 50+), a wide-brimmed hat, and UV-blocking sunglasses are essential alongside daily SPF use.');
-  if(hour>=11&&hour<=15&&uv!=null&&uv>=3)
+    recs.push('Your high outdoor UV exposure means protective clothing (UPF 50+), a wide-brimmed hat, and UV-blocking sunglasses are your primary protection — with sunscreen on skin you cannot cover whenever UV is 3 or above.');
+  if(hour>=11&&hour<=15&&uv!=null&&Math.round(uv)>=3)
     recs.push('&#9728;&#65039; You are currently in the peak UV window (11:00–15:00). Seek shade, wear a hat, and avoid prolonged direct sun exposure right now.');
   if(skinType>=7&&!recs.some(r=>r.includes('melanoma risk')))
     recs.push('Research shows darker skin tones carry equal melanoma risk to lighter tones but face lower likelihood of early detection. Regular professional checks are equally important regardless of skin tone.');
@@ -1417,21 +1427,31 @@ async function initNearestClinicAsync(){
   }
 }
 // ===== HOMEPAGE HELPERS =====
+// Neutral message when live UV is unavailable — no blanket SPF instruction
+// (EADO/WHO: protection is only needed from UV 3; feedback 1.2)
 function getDefaultSPFRec(monkTone){
-  if(monkTone<=3)return'We recommend <strong>SPF 50+</strong> as your daily minimum given your skin type.';
-  if(monkTone<=6)return'We recommend <strong>SPF 30–50</strong> as your daily minimum.';
-  return'Apply <strong>SPF 30+</strong> daily — melanoma risk is equal across all skin tones regardless of natural pigmentation.';
+  const base='Live UV is unavailable — check the UV index before extended time outdoors. Protection is needed from UV 3 (EADO/WHO): shade and clothing first, with sunscreen on skin you cannot cover.';
+  if(monkTone>=7)return base+' Melanoma risk is equal across all skin tones — the UV 3 rule applies to everyone.';
+  return base;
+}
+// Single source of truth for displaying the SPF/protection message (feedback 1.2)
+function buildSpfRecHtml(spf){
+  let html=spf.spf
+    ?spf.msg.replace('SPF '+spf.spf,'<strong>SPF '+spf.spf+'</strong>')
+    :spf.msg;
+  if(spf.note)html+=`<div class="uv-spf-note">${spf.note}</div>`;
+  return html;
 }
 function buildUVCardHtml(wd,p,hour){
   const isPeak=hour>=11&&hour<=15;
   if(wd&&wd.uv!=null){
-    const band=getUVBand(wd.uv),spf=getPersonalisedSPF(wd.uv,p.skinType),showPeak=isPeak&&wd.uv>=3;
-    const spfAction=spf.spf?(spf.msg.replace(/^SPF [^,]+,\s*/,'')||spf.msg).replace(/^./,c=>c.toUpperCase()):'';
+    const uvR=Math.round(wd.uv);
+    const band=getUVBand(uvR),spf=getPersonalisedSPF(wd.uv,p.skinType),showPeak=isPeak&&uvR>=3;
     return`<div id="hp-uv-loading" style="display:none"></div><div id="hp-uv-data">
       <div class="uv-gauge-wrap" id="hp-uv-gauge">${renderUVGaugeSVG(wd.uv)}</div>
-      <div class="uv-value-row"><div class="uv-value" id="hp-uv-value">${Math.round(wd.uv)}</div><div class="uv-value-label">UV Index</div></div>
+      <div class="uv-value-row"><div class="uv-value" id="hp-uv-value">${uvR}</div><div class="uv-value-label">UV Index</div></div>
       <div class="uv-level-badge" id="hp-uv-level" style="background:${band.bg};color:${band.text}">${band.level}</div>
-      <div class="uv-spf-rec" id="hp-spf-msg">${spf.spf?`Based on your current location, the current weather and your skin profile, we recommend <strong>SPF ${spf.spf}</strong> today. ${spfAction}.`:'No sun protection required at current UV levels.'}${spf.note?`<div class="uv-spf-note">${spf.note}</div>`:''}</div>
+      <div class="uv-spf-rec" id="hp-spf-msg">${buildSpfRecHtml(spf)}</div>
       <div class="uv-peak-alert" id="hp-peak-uv" style="display:${showPeak?'block':'none'}">&#9728;&#65039; You are in the peak UV window right now (11:00–15:00)</div>
       <div class="uv-weather-row" id="hp-weather-summary"><span style="font-size:20px">${getWeatherEmoji(wd.weatherCode)}</span><span>${Math.round(wd.temp)}°C · ${getWeatherDesc(wd.weatherCode)}</span></div>
     </div>`;
@@ -1634,15 +1654,16 @@ function animateRiskGaugeIfOpen(){if(st.profileExpanded)animateRiskGauge();}
 // ===== ASYNC HOMEPAGE INIT =====
 function updateWeatherUI(wd,geo){
   const hour=new Date().getHours(),isPeak=hour>=11&&hour<=15;
-  const band=getUVBand(wd.uv),spf=getPersonalisedSPF(wd.uv,st.profile.skinType),showPeak=isPeak&&wd.uv>=3;
+  const uvR=Math.round(wd.uv);
+  const band=getUVBand(uvR),spf=getPersonalisedSPF(wd.uv,st.profile.skinType),showPeak=isPeak&&uvR>=3;
   const loadEl=document.getElementById('hp-uv-loading'),dataEl=document.getElementById('hp-uv-data');
   if(loadEl)loadEl.style.display='none';if(dataEl)dataEl.style.display='block';
   const gaugeEl=document.getElementById('hp-uv-gauge');if(gaugeEl)gaugeEl.innerHTML=renderUVGaugeSVG(wd.uv);
-  const valEl=document.getElementById('hp-uv-value');if(valEl)valEl.textContent=Math.round(wd.uv);
+  const valEl=document.getElementById('hp-uv-value');if(valEl)valEl.textContent=uvR;
   const lvlEl=document.getElementById('hp-uv-level');
   if(lvlEl){lvlEl.textContent=band.level;lvlEl.style.background=band.bg;lvlEl.style.color=band.text;lvlEl.style.display='block';}
   const spfEl=document.getElementById('hp-spf-msg');
-  if(spfEl){const spfAction=spf.spf?(spf.msg.replace(/^SPF [^,]+,\s*/,'')||spf.msg).replace(/^./,c=>c.toUpperCase()):'';spfEl.style.display='block';spfEl.innerHTML=spf.spf?`Based on your current location, the current weather and your skin profile, we recommend <strong>SPF ${spf.spf}</strong> today. ${spfAction}.`:'No sun protection required at current UV levels.';if(spf.note)spfEl.innerHTML+=`<div class="uv-spf-note">${spf.note}</div>`;}
+  if(spfEl){spfEl.style.display='block';spfEl.innerHTML=buildSpfRecHtml(spf);}
   const peakEl=document.getElementById('hp-peak-uv');
   if(peakEl){peakEl.style.display=showPeak?'block':'none';if(showPeak)peakEl.innerHTML='&#9728;&#65039; You are in the peak UV window right now (11:00–15:00)';}
   const wxEl=document.getElementById('hp-weather-summary');

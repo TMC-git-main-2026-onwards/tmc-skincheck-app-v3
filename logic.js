@@ -51,30 +51,40 @@ function getClinicsByDistance(lat,lon){
     .sort((a,b)=>a.distance-b.distance);
 }
 // ===== UV & SPF LOGIC =====
-// EADO (European Association of Dermato-Oncology) UV Protection Scale
+// EADO (European Association of Dermato-Oncology) UV Protection Scale.
+// Rounds internally so the band always matches the displayed integer UV.
 function getUVBand(uv){
+  uv=Math.round(uv);
   if(uv<=2)return{level:'LOW',color:'#4caf50',bg:'#e8f5e9',text:'#2e7d32'};
   if(uv<=5)return{level:'MODERATE',color:'#ffb300',bg:'#fff8e1',text:'#f57f17'};
   if(uv<=7)return{level:'HIGH',color:'#ff7043',bg:'#fff3e0',text:'#bf360c'};
   if(uv<=10)return{level:'VERY HIGH',color:'#e53935',bg:'#ffebee',text:'#b71c1c'};
   return{level:'EXTREME',color:'#8e24aa',bg:'#f3e5f5',text:'#4a148c'};
 }
-// Bias-corrected SPF recommendation per Gadare et al., MIT 2026 debiasing principle:
-// Monk tones 1-3 (lightest): move one EADO protection level up
-// Monk tones 7-10 (darker): standard EADO + equality note
+// EADO-strict, bias-corrected sun protection recommendation.
+// EADO priority order (Brochez et al. 2026, JDV; EJC 2024 consensus paper):
+// (1) avoid intentional tanning and sunbeds; (2) shade and protective
+// clothing are the PRIMARY protection; (3) sunscreen (SPF 30-50+, UVA label)
+// is a SUPPLEMENTARY measure for uncovered skin — and only when UV >= 3.
+// Below UV 3 no sun protection is required, for ALL skin tones (EADO/WHO).
+// Bias correction per Gadare et al., MIT 2026: Monk tones 1-3 move one
+// protection level up — but only when UV >= 3; Monk 7-10 get an equality note.
+// Band logic uses the ROUNDED UV value — the same number the UI displays —
+// so the badge, gauge, SPF message and peak alert can never disagree.
 function getPersonalisedSPF(uv,monkTone){
+  const uvR=Math.round(uv);
   const levels=[
-    {spf:null,msg:'No protection required'},
-    {spf:'30+',msg:'SPF 30+, hat, and sunglasses'},
-    {spf:'30–50',msg:'SPF 30–50, seek shade at solar noon'},
-    {spf:'50+',msg:'SPF 50+, avoid solar noon, cover up'},
-    {spf:'50+',msg:'SPF 50+, stay indoors at solar noon'},
+    {spf:null,msg:'No sun protection required at current UV levels. Protection is needed from UV 3 (EADO/WHO).'},
+    {spf:'30+',msg:'Seek shade around midday. Clothing, a hat and sunglasses are your primary protection; apply SPF 30+ to skin you cannot cover.'},
+    {spf:'30–50',msg:'Shade and protective clothing first. Apply SPF 30–50 to uncovered skin and avoid the midday sun.'},
+    {spf:'50+',msg:'Avoid the midday sun. Cover up with clothing, a hat and sunglasses; apply SPF 50+ to any uncovered skin.'},
+    {spf:'50+',msg:'Stay indoors around solar noon. Cover up fully when outside; apply SPF 50+ to any uncovered skin.'},
   ];
-  let idx=uv<=2?0:uv<=5?1:uv<=7?2:uv<=10?3:4;
+  let idx=uvR<3?0:uvR<=5?1:uvR<=7?2:uvR<=10?3:4;
   let note=null;
-  if(monkTone<=3)idx=Math.min(idx+1,4);
+  if(uvR>=3&&monkTone&&monkTone<=3)idx=Math.min(idx+1,4);
   if(monkTone>=7)note='Darker skin tones have lower natural SPF but equal melanoma risk — do not rely on skin tone as protection. Use stated SPF.';
-  return{...levels[idx],note};
+  return{...levels[idx],note,uvR};
 }
 // ===== RISK CALCULATIONS =====
 /*
