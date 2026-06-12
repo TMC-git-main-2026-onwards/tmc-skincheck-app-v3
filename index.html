@@ -290,6 +290,13 @@ input:checked+.toggle-slider:before{transform:translateX(24px)}
 .clinic-list-name{color:white;font-weight:600}
 .clinic-list-addr{color:rgba(255,255,255,.6);font-size:11px;margin-top:2px;line-height:1.4}
 .clinic-list-dist{color:var(--tmc-gold);font-weight:600;white-space:nowrap;flex-shrink:0}
+.band-indicator{display:flex;gap:6px;margin:10px 0 4px}
+.band-seg{flex:1;text-align:center;padding:12px 4px;border-radius:var(--radius-sm);font-size:10px;font-weight:700;letter-spacing:.4px;background:var(--tmc-gray-100);color:var(--tmc-gray-400);border:2px solid transparent;line-height:1.3}
+.band-seg.band-low{background:#e8f5e9;color:#2e7d32;border-color:#2e7d32}
+.band-seg.band-moderate{background:#fff3e0;color:#e65100;border-color:#e65100}
+.band-seg.band-high{background:#fce4ec;color:#c62828;border-color:#c62828}
+.band-seg.band-veryhigh{background:#f3e5f5;color:#6a1b9a;border-color:#6a1b9a}
+.band-category-note{font-size:12px;color:var(--tmc-gray-600);line-height:1.5;margin-top:10px;text-align:center;font-style:italic}
 </style>
 </head>
 <body>
@@ -1497,16 +1504,7 @@ function renderHomepage(){
   const riskTagClass={LOW:'tag-low',MODERATE:'tag-moderate',HIGH:'tag-high','VERY HIGH':'tag-veryhigh'}[p.riskLevel]||'tag-low';
   const freqClass={LOW:'freq-low',MODERATE:'freq-mod',HIGH:'freq-high','VERY HIGH':'freq-veryhigh'}[p.riskLevel]||'freq-low';
   const cityDisplay=st.currentCity||p.city||'';
-  const riskGaugeSVG=`<svg id="hpRiskGaugeSvg" width="220" height="130" viewBox="0 0 220 130">
-    <defs><linearGradient id="hpGG" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" style="stop-color:#28a745"/><stop offset="50%" style="stop-color:#f2cc8f"/><stop offset="100%" style="stop-color:#c62828"/>
-    </linearGradient></defs>
-    <path d="M 20 110 A 90 90 0 0 1 200 110" fill="none" stroke="#e8e8e8" stroke-width="14" stroke-linecap="round"/>
-    <path d="M 20 110 A 90 90 0 0 1 200 110" fill="none" stroke="url(#hpGG)" stroke-width="14" stroke-linecap="round" opacity="0.2"/>
-    <path id="hpGaugeFill" d="M 20 110 A 90 90 0 0 1 200 110" fill="none" stroke="url(#hpGG)" stroke-width="14" stroke-linecap="round" stroke-dasharray="283" stroke-dashoffset="283" style="transition:stroke-dashoffset 1.6s cubic-bezier(.4,0,.2,1)"/>
-    <text id="hpGaugeScore" x="110" y="95" text-anchor="middle" font-family="Fraunces,serif" font-size="36" font-weight="700" fill="#1a2332">0</text>
-    <text x="110" y="115" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="12" fill="#9a9a9a">out of 100</text>
-  </svg>`;
+  // Band-only presentation — no numeric score anywhere in the UI (feedback 1.5)
   const aiBadge=p.skinAnalysis?.mst?`<div style="display:inline-flex;align-items:center;gap:6px;background:var(--tmc-teal-light);border:1px solid rgba(46,196,182,.3);border-radius:20px;padding:4px 12px;font-size:12px;color:var(--tmc-teal-dark);font-weight:600;margin-top:8px">&#129504; Skin tone detected by AI</div>`:'';
   // Resolve partnerInfo from live profile first, then re-derive from registry as fallback
   // (guards against partnerInfo being missing from an older localStorage entry)
@@ -1540,14 +1538,14 @@ function renderHomepage(){
         <div class="collapsible-body ${st.profileExpanded?'open':''}" id="profileCollapse">
           <div class="collapsible-inner">
             <div class="card" style="margin-bottom:12px">
-              <div class="hp-gauge-wrap">${riskGaugeSVG}</div>
+              <div class="hp-gauge-wrap">${renderRiskBandIndicator(p.riskLevel)}</div>
               <div style="text-align:center;margin-top:6px"><span class="tag ${riskTagClass}" style="font-size:14px;padding:6px 18px">${p.riskLevel} Risk</span></div>
+              <p class="band-category-note">This is a risk <em>category</em> based on your answers and established risk factors — it is not a probability of developing skin cancer.</p>
               <p style="font-size:13px;color:var(--tmc-gray-600);line-height:1.55;margin-top:12px;padding:0 4px">${summary}</p>
             </div>
             <div class="card" style="margin-bottom:12px">
               <div class="hp-profile-row"><span class="hp-profile-label">Skin tone</span><span class="hp-profile-value">${skinTone?`<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:${skinTone.color};border:1.5px solid rgba(0,0,0,.15)"></span> Monk Tone ${p.skinType} of 10`:'-'}${p.skinAnalysis?.mst?' &#129504;':''}</span></div>
-              <div class="hp-profile-row"><span class="hp-profile-label">Age range</span><span class="hp-profile-value">${questions[0].options.find(o=>o.value===p.answers.age)?.label||'—'}</span></div>
-              <div class="hp-profile-row" style="border-bottom:none"><span class="hp-profile-label">Risk score</span><span class="hp-profile-value">${p.riskScore}/100</span></div>
+              <div class="hp-profile-row" style="border-bottom:none"><span class="hp-profile-label">Age range</span><span class="hp-profile-value">${questions[0].options.find(o=>o.value===p.answers.age)?.label||'—'}</span></div>
             </div>
             <p class="label">Key risk factors</p>
             <div class="card">${factors.map(f=>`<div class="risk-factor-item"><div class="risk-factor-dot"></div><span>${f}</span></div>`).join('')}</div>
@@ -1636,21 +1634,17 @@ function toggleProfile(){
   const col=document.getElementById('profileCollapse'),chev=document.getElementById('profileChevron');
   if(col)col.classList.toggle('open',st.profileExpanded);
   if(chev)chev.classList.toggle('open',st.profileExpanded);
-  if(st.profileExpanded)setTimeout(()=>animateRiskGauge(),150);
 }
 function toggleMethodology(){
   const col=document.getElementById('methCollapse'),chev=document.getElementById('methChevron');
   if(col){const open=col.classList.toggle('open');if(chev)chev.classList.toggle('open',open);}
 }
-function animateRiskGauge(){
-  const fill=document.getElementById('hpGaugeFill'),scoreEl=document.getElementById('hpGaugeScore'),profile=st.profile;
-  if(!fill||!scoreEl||!profile)return;
-  const score=profile.riskScore||0;
-  fill.style.strokeDashoffset=283*(1-Math.min(score/100,1));
-  let cur=0;
-  const timer=setInterval(()=>{cur++;scoreEl.textContent=cur;if(cur>=score){clearInterval(timer);scoreEl.textContent=score;}},1600/Math.max(score,1));
+// Four-segment band indicator with the user's band highlighted (feedback 1.5)
+function renderRiskBandIndicator(band){
+  const bands=['LOW','MODERATE','HIGH','VERY HIGH'];
+  const cls={LOW:'band-low',MODERATE:'band-moderate',HIGH:'band-high','VERY HIGH':'band-veryhigh'};
+  return`<div class="band-indicator">${bands.map(b=>`<div class="band-seg ${b===band?cls[b]:''}">${b}</div>`).join('')}</div>`;
 }
-function animateRiskGaugeIfOpen(){if(st.profileExpanded)animateRiskGauge();}
 // ===== ASYNC HOMEPAGE INIT =====
 function updateWeatherUI(wd,geo){
   const hour=new Date().getHours(),isPeak=hour>=11&&hour<=15;
@@ -1782,7 +1776,7 @@ function render(){
   app.innerHTML=`<div class="${dirClass}">${html}</div>`;
   bindEvents();
   if(st.screen==='loading')startLoadingMessages();
-  if(st.screen==='homepage')setTimeout(()=>{animateRiskGaugeIfOpen();initHomepageAsync();initNearestClinicAsync();},100);
+  if(st.screen==='homepage')setTimeout(()=>{initHomepageAsync();initNearestClinicAsync();},100);
 }
 // ===== EVENT BINDING =====
 function bindEvents(){
