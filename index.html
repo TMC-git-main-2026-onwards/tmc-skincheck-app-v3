@@ -781,8 +781,13 @@ function stopCamera(){
   if(st.cameraAnimFrame){cancelAnimationFrame(st.cameraAnimFrame);st.cameraAnimFrame=null;}
   if(window.activeCameraStream){window.activeCameraStream.getTracks().forEach(t=>t.stop());window.activeCameraStream=null;}
 }
+// State ids are case-insensitive (step 1a): DOM ids are lowercase
+// cam-state-a/b/c, but call sites historically pass 'A'/'B'/'C' — the old
+// exact-match fallback silently matched nothing, breaking Retake, Back to
+// setup, error Try Again and manual tone selection.
 function showCameraState(s,dataURL){
-  if(s==='B'){
+  s=String(s).toLowerCase();
+  if(s==='b'){
     const b=document.getElementById('cam-state-b');
     if(b){
       b.innerHTML=`<h2 class="title-lg" style="margin-bottom:14px">Position your right arm</h2>
@@ -804,7 +809,7 @@ function showCameraState(s,dataURL){
     const c=document.getElementById('cam-state-c');if(c)c.style.display='none';
     return;
   }
-  if(s==='C'&&dataURL){
+  if(s==='c'&&dataURL){
     const stC=document.getElementById('cam-state-c');
     if(stC){
       stC.innerHTML=`<div style="padding:32px 20px;text-align:center">
@@ -820,7 +825,7 @@ function showCameraState(s,dataURL){
     const b=document.getElementById('cam-state-b');if(b)b.style.display='none';
     return;
   }
-  ['A','B','C'].forEach(id=>{
+  ['a','b','c'].forEach(id=>{
     const el=document.getElementById('cam-state-'+id);
     if(el)el.style.display=(id===s)?'':'none';
   });
@@ -893,11 +898,16 @@ function capturePhoto(){
   showCameraState('C',dataURL);
   analyseArmPhoto(dataURL).then(handleAnalysisResult).catch(err=>console.error(err));
 }
+// Retake reopens the live camera directly (step 1a) — previously it dropped
+// the user back to the setup screen. "Back to setup" (state A) remains the
+// explicit route out of the live camera view.
 function retakePhoto(){
   window.capturedImageDataURL=null;
   st.capturedPhoto=null;
+  st.skinAnalysis=null;
   if(window.activeCameraStream){window.activeCameraStream.getTracks().forEach(t=>t.stop());window.activeCameraStream=null;}
-  showCameraState('A');
+  if(st.cameraAnimFrame){cancelAnimationFrame(st.cameraAnimFrame);st.cameraAnimFrame=null;}
+  startCamera();
 }
 // MONK_TONES used only as reference — ITA method now primary classifier
 const MONK_TONES = [
@@ -1321,7 +1331,7 @@ function showAnalysisResults(){
     </div>
     <p style="font-size:11px;color:var(--tmc-gray-400);margin-top:10px;line-height:1.5">Right-arm mole count predicts body mole burden per Bataille et al. 2015 (King's College London). Body mole count question will be pre-filled in your questionnaire.</p>
     <div style="margin-top:20px;display:flex;gap:10px">
-      <button class="btn-secondary" onclick="st.capturedPhoto=null;st.skinAnalysis=null;retakePhoto()" style="flex:1">Retake photo</button>
+      <button class="btn-secondary" onclick="retakePhoto()" style="flex:1">Retake photo</button>
       <button class="btn-primary" onclick="proceedFromAnalysis()" style="flex:1">Confirm &#8594;</button>
     </div>
   </div>`;
