@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#1a2332">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>The Mole Clinic — Skin Safety</title>
@@ -42,7 +42,7 @@ body{padding-bottom:env(safe-area-inset-bottom)}
 .screen-slide-right{animation:slideInRight .35s cubic-bezier(.4,0,.2,1) forwards}
 .screen-slide-left{animation:slideInLeft .35s cubic-bezier(.4,0,.2,1) forwards}
 .screen{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
-.header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 8px;background:var(--tmc-white);border-bottom:1px solid var(--tmc-gray-200);position:sticky;top:0;z-index:100}
+.header{display:flex;align-items:center;justify-content:space-between;padding:calc(16px + env(safe-area-inset-top,0px)) 20px 8px;background:var(--tmc-white);border-bottom:1px solid var(--tmc-gray-200);position:sticky;top:0;z-index:100}
 .header-logo{font-family:var(--font-display);font-size:18px;font-weight:600;color:var(--tmc-navy);letter-spacing:-.3px}
 .header-back{width:44px;height:44px;border-radius:50%;border:none;background:var(--tmc-gray-100);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;font-size:18px;color:var(--tmc-gray-600)}
 .header-back:hover{background:var(--tmc-gray-200)}
@@ -125,7 +125,7 @@ body{padding-bottom:env(safe-area-inset-bottom)}
 .tag-moderate{background:#fff3e0;color:#e65100}
 .tag-high{background:#fce4ec;color:#c62828}
 .tag-veryhigh{background:#f3e5f5;color:#6a1b9a}
-.welcome-hero{background:linear-gradient(160deg,var(--tmc-navy) 0%,#2a3f5a 50%,var(--tmc-navy-light) 100%);border-radius:0 0 var(--radius-xl) var(--radius-xl);padding:48px 24px 40px;text-align:center;color:white;position:relative;overflow:hidden}
+.welcome-hero{background:linear-gradient(160deg,var(--tmc-navy) 0%,#2a3f5a 50%,var(--tmc-navy-light) 100%);border-radius:0 0 var(--radius-xl) var(--radius-xl);padding:calc(48px + env(safe-area-inset-top,0px)) 24px 40px;text-align:center;color:white;position:relative;overflow:hidden}
 .welcome-hero::before{content:'';position:absolute;top:-50%;right:-20%;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(46,196,182,.15) 0%,transparent 70%)}
 .welcome-hero-logo{position:relative;z-index:1;margin:0 auto 32px auto}
 .welcome-hero .title-xl{color:white;position:relative;z-index:1}
@@ -162,7 +162,7 @@ input:checked+.toggle-slider:before{transform:translateX(24px)}
 .toggle-label-text{font-size:15px;font-weight:600;color:var(--tmc-navy)}
 .toggle-label-sub{font-size:12px;color:var(--tmc-gray-600);margin-top:2px}
 .hp-screen{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;background:var(--tmc-cream)}
-.hp-header{background:linear-gradient(160deg,var(--tmc-navy) 0%,#1e3250 100%);padding:48px 20px 28px;position:relative;overflow:hidden}
+.hp-header{background:linear-gradient(160deg,var(--tmc-navy) 0%,#1e3250 100%);padding:calc(48px + env(safe-area-inset-top,0px)) 20px 28px;position:relative;overflow:hidden}
 .hp-header::before{content:'';position:absolute;top:-30%;right:-15%;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(46,196,182,.12) 0%,transparent 70%)}
 .hp-logo{margin-bottom:14px;position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between}
 .hp-logo img{height:60px;width:auto;display:block}
@@ -747,18 +747,20 @@ function getProgress(){
   const idx=screens.indexOf(st.screen);
   return Math.round((Math.max(idx,0)/(screens.length-1))*100);
 }
+// One screen group = one step (step 1b): Details and Consent no longer
+// both claim "STEP 1"
 function getProgressLabel(){
   if(st.screen==='questionnaire'){
     const vis=questions.filter(q=>!shouldSkipQuestion(q));
     const visIdx=vis.findIndex(q=>q.id===questions[st.currentQuestion].id)+1;
-    return`STEP 3 OF 4 — QUESTION ${visIdx} OF ${vis.length}`;
+    return`STEP 4 OF 5 — QUESTION ${visIdx} OF ${vis.length}`;
   }
   const labels={
-    welcome:'',email:'STEP 1 OF 4 — YOUR DETAILS',consent:'STEP 1 OF 4 — PRIVACY &amp; CONSENT',
-    arm_camera:'STEP 2 OF 4 — RIGHT ARM ANALYSIS',
-    q_intro:'STEP 3 OF 4 — YOUR RISK PROFILE',
-    consent_location:'STEP 4 OF 4 — LOCATION',consent_travel:'STEP 4 OF 4 — TRAVEL',
-    consent_notifications:'STEP 4 OF 4 — REMINDERS',loading:'BUILDING YOUR PROFILE…',
+    welcome:'',email:'STEP 1 OF 5 — YOUR DETAILS',consent:'STEP 2 OF 5 — PRIVACY &amp; CONSENT',
+    arm_camera:'STEP 3 OF 5 — RIGHT ARM ANALYSIS',
+    q_intro:'STEP 4 OF 5 — YOUR RISK PROFILE',
+    consent_location:'STEP 5 OF 5 — LOCATION',consent_travel:'STEP 5 OF 5 — TRAVEL',
+    consent_notifications:'STEP 5 OF 5 — REMINDERS',loading:'BUILDING YOUR PROFILE…',
   };
   return labels[st.screen]||'';
 }
@@ -766,7 +768,12 @@ function renderFooter(){return`<div class="screen-footer">Powered by <a href="#"
 function renderHeader(showBack=true){
   if(st.screen==='welcome'||st.screen==='homepage')return'';
   const micro=['questionnaire','arm_camera','abcde'].includes(st.screen);
-  const microMsg=['Great start — just a few more questions',"You're halfway there",'Your profile is taking shape','Nearly done — almost ready'][Math.floor(getProgress()/26)%4]||'';
+  // Microcopy tied to actual progress (step 1b) — "halfway" only past the midpoint
+  const pct=getProgress();
+  const microMsg=pct>=85?'Nearly done — almost ready'
+    :pct>=60?'Your profile is taking shape'
+    :pct>=50?"You're halfway there"
+    :'Great start — just a few more questions';
   return`<div class="header">
     ${showBack?'<button class="header-back" onclick="goBack()">&#8592;</button>':'<div style="width:44px"></div>'}
     <div style="flex:1;text-align:center"><img src="https://themoleclinic.co.uk/wp-content/uploads/2025/02/MoleClinic-Ver-White2.png" alt="The Mole Clinic" style="height:32px;width:auto;"></div>
@@ -781,8 +788,13 @@ function stopCamera(){
   if(st.cameraAnimFrame){cancelAnimationFrame(st.cameraAnimFrame);st.cameraAnimFrame=null;}
   if(window.activeCameraStream){window.activeCameraStream.getTracks().forEach(t=>t.stop());window.activeCameraStream=null;}
 }
+// State ids are case-insensitive (step 1a): DOM ids are lowercase
+// cam-state-a/b/c, but call sites historically pass 'A'/'B'/'C' — the old
+// exact-match fallback silently matched nothing, breaking Retake, Back to
+// setup, error Try Again and manual tone selection.
 function showCameraState(s,dataURL){
-  if(s==='B'){
+  s=String(s).toLowerCase();
+  if(s==='b'){
     const b=document.getElementById('cam-state-b');
     if(b){
       b.innerHTML=`<h2 class="title-lg" style="margin-bottom:14px">Position your right arm</h2>
@@ -804,7 +816,7 @@ function showCameraState(s,dataURL){
     const c=document.getElementById('cam-state-c');if(c)c.style.display='none';
     return;
   }
-  if(s==='C'&&dataURL){
+  if(s==='c'&&dataURL){
     const stC=document.getElementById('cam-state-c');
     if(stC){
       stC.innerHTML=`<div style="padding:32px 20px;text-align:center">
@@ -820,7 +832,7 @@ function showCameraState(s,dataURL){
     const b=document.getElementById('cam-state-b');if(b)b.style.display='none';
     return;
   }
-  ['A','B','C'].forEach(id=>{
+  ['a','b','c'].forEach(id=>{
     const el=document.getElementById('cam-state-'+id);
     if(el)el.style.display=(id===s)?'':'none';
   });
@@ -893,11 +905,16 @@ function capturePhoto(){
   showCameraState('C',dataURL);
   analyseArmPhoto(dataURL).then(handleAnalysisResult).catch(err=>console.error(err));
 }
+// Retake reopens the live camera directly (step 1a) — previously it dropped
+// the user back to the setup screen. "Back to setup" (state A) remains the
+// explicit route out of the live camera view.
 function retakePhoto(){
   window.capturedImageDataURL=null;
   st.capturedPhoto=null;
+  st.skinAnalysis=null;
   if(window.activeCameraStream){window.activeCameraStream.getTracks().forEach(t=>t.stop());window.activeCameraStream=null;}
-  showCameraState('A');
+  if(st.cameraAnimFrame){cancelAnimationFrame(st.cameraAnimFrame);st.cameraAnimFrame=null;}
+  startCamera();
 }
 // MONK_TONES used only as reference — ITA method now primary classifier
 const MONK_TONES = [
@@ -1321,7 +1338,7 @@ function showAnalysisResults(){
     </div>
     <p style="font-size:11px;color:var(--tmc-gray-400);margin-top:10px;line-height:1.5">Right-arm mole count predicts body mole burden per Bataille et al. 2015 (King's College London). Body mole count question will be pre-filled in your questionnaire.</p>
     <div style="margin-top:20px;display:flex;gap:10px">
-      <button class="btn-secondary" onclick="st.capturedPhoto=null;st.skinAnalysis=null;retakePhoto()" style="flex:1">Retake photo</button>
+      <button class="btn-secondary" onclick="retakePhoto()" style="flex:1">Retake photo</button>
       <button class="btn-primary" onclick="proceedFromAnalysis()" style="flex:1">Confirm &#8594;</button>
     </div>
   </div>`;
@@ -1630,7 +1647,7 @@ function renderConsentNotifications(){
 }
 function renderLoading(){
   return`<div class="screen">
-    <div style="background:#2ec4b6;padding:14px 20px;text-align:center;position:sticky;top:0;z-index:100"><img src="https://themoleclinic.co.uk/wp-content/uploads/2025/02/MoleClinic-Ver-White2.png" alt="The Mole Clinic" style="height:36px;width:auto;"></div>
+    <div style="background:#2ec4b6;padding:calc(14px + env(safe-area-inset-top,0px)) 20px 14px;text-align:center;position:sticky;top:0;z-index:100"><img src="https://themoleclinic.co.uk/wp-content/uploads/2025/02/MoleClinic-Ver-White2.png" alt="The Mole Clinic" style="height:36px;width:auto;"></div>
     <div class="loading-screen">
       <div class="loading-body-wrap">
         <svg class="loading-body-svg" viewBox="0 0 100 200" width="100" height="200" xmlns="http://www.w3.org/2000/svg">
