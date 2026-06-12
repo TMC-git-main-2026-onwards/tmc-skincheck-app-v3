@@ -801,7 +801,7 @@ function goBack(){
 function showToast(msg){
   const t=document.createElement('div');
   t.textContent=msg;
-  t.style.cssText='position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:#1a2332;color:white;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;white-space:nowrap;animation:fadeIn .3s ease-out';
+  t.style.cssText='position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:var(--ink-900);color:white;padding:10px 20px;border-radius:20px;font-size:13px;z-index:9999;white-space:nowrap;animation:fadeIn .2s ease-out';
   document.body.appendChild(t);setTimeout(()=>t.remove(),2500);
 }
 function getProgress(){

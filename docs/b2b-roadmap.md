@@ -24,8 +24,16 @@ cumulative-UV dimension (brief §1.11) was built for.
   (Northwind/Meridian); the partner `domains` in the registry exist for this
   mode and future co-branding.
 - **Occupational-health framing**: when a code is present, the questionnaire
-  intro acknowledges the workplace context, and the consent screen states
-  that results stay on the device and are not shared with the employer.
+  intro acknowledges the context — employer ("workplace skin-health check"),
+  insurer ("as part of your health cover with {Partner}") or generic provider —
+  and the consent screen states that results stay on the device and are not
+  shared with the employer/insurer.
+- **Partner sponsor lockup** (re-skin): "Offered by {Partner}" beside the TMC
+  wordmark on the navy brand band (welcome + results). Resolved from the
+  campaign code or a `?partner=CODE` deep link via the `PARTNERS` registry
+  (`{displayName, logoUrl?, type:'employer'|'insurer'}`); unknown codes show
+  "Offered through your provider" with no logo. No partner re-colouring — TMC
+  stays the clinical brand (white-label deferred). See docs/design-system.md.
 - **Consumer booking funnel unchanged** — occupational-health clients
   convert through the same service-specific booking pages.
 
