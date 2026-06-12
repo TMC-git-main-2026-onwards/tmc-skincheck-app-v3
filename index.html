@@ -1252,8 +1252,8 @@ function renderQuestionnaire(){
   const vis=questions.filter(vq=>!shouldSkipQuestion(vq));
   const isLastVis=vis[vis.length-1]?.id===q.id;
   const nudgeVal=q.multiselect?null:sel;
-  const nudge=riskNudges[q.id]&&nudgeVal&&riskNudges[q.id][nudgeVal]
-    ?`<div class="risk-nudge"><div class="risk-nudge-icon">&#8505;</div><div class="risk-nudge-text">${riskNudges[q.id][nudgeVal]}</div></div>`:'';
+  const nudge=`<div id="qNudge">${riskNudges[q.id]&&nudgeVal&&riskNudges[q.id][nudgeVal]
+    ?`<div class="risk-nudge"><div class="risk-nudge-icon">&#8505;</div><div class="risk-nudge-text">${riskNudges[q.id][nudgeVal]}</div></div>`:''}</div>`;
   const isDisabled=q.multiselect?(!Array.isArray(sel)||sel.length===0):!sel;
   let optionsHtml='';
   if(q.multiselect){
@@ -1290,6 +1290,25 @@ function renderQuestionnaire(){
     <div class="bottom-action"><button class="btn-primary" id="questionNext" ${isDisabled?'disabled':''}>${isLastVis?'Continue &#8594;':'Next Question &#8594;'}</button></div>
     ${renderFooter()}
   </div>`;
+}
+// In-place questionnaire update on answer selection — no full re-render, so
+// the scroll position is preserved (feedback 1.8)
+function refreshQuestionUI(){
+  const q=questions[st.currentQuestion];
+  const sel=st.answers[q.id];
+  document.querySelectorAll('.option-card[data-answer]').forEach(c=>{
+    const v=c.dataset.answer;
+    const on=q.multiselect?(Array.isArray(sel)&&sel.includes(v)):sel===v;
+    c.classList.toggle('selected',on);
+  });
+  const nudgeWrap=document.getElementById('qNudge');
+  if(nudgeWrap){
+    const nudgeVal=q.multiselect?null:sel;
+    const msg=riskNudges[q.id]&&nudgeVal?riskNudges[q.id][nudgeVal]:null;
+    nudgeWrap.innerHTML=msg?`<div class="risk-nudge"><div class="risk-nudge-icon">&#8505;</div><div class="risk-nudge-text">${msg}</div></div>`:'';
+  }
+  const btn=document.getElementById('questionNext');
+  if(btn)btn.disabled=q.multiselect?(!Array.isArray(sel)||sel.length===0):!sel;
 }
 function renderABCDE(){
   return`<div class="screen">
@@ -1801,7 +1820,9 @@ function bindEvents(){
   if(consentDataEl)consentDataEl.addEventListener('click',()=>{st.consentData=!st.consentData;render();});
   if(consentMktEl)consentMktEl.addEventListener('click',()=>{st.consentMarketing=!st.consentMarketing;render();});
   if(consentNext)consentNext.addEventListener('click',()=>navigate('arm_camera'));
-  // Questionnaire screen
+  // Questionnaire screen — answer selection updates the DOM in place rather
+  // than re-rendering the screen, so the scroll position never jumps
+  // (feedback 1.8, Chrome scroll-jump on answering)
   document.querySelectorAll('.option-card[data-answer]').forEach(c=>c.addEventListener('click',()=>{
     const q=questions[st.currentQuestion];
     const val=c.dataset.answer;
@@ -1817,13 +1838,13 @@ function bindEvents(){
     }else{
       st.answers[q.id]=val;
     }
-    render();
+    refreshQuestionUI();
   }));
   const questionNext=document.getElementById('questionNext');
   if(questionNext)questionNext.addEventListener('click',()=>{
     let next=st.currentQuestion+1;
     while(next<questions.length&&shouldSkipQuestion(questions[next]))next++;
-    if(next<questions.length){st.currentQuestion=next;render();}else navigate('consent_location');
+    if(next<questions.length){st.currentQuestion=next;window.scrollTo(0,0);render();}else navigate('consent_location');
   });
   // ABCDE screen (legacy — kept for back-nav compatibility)
   document.querySelectorAll('[data-abcde]').forEach(c=>c.addEventListener('click',()=>{st.abcdeAnswers[c.dataset.abcde]=!st.abcdeAnswers[c.dataset.abcde];render();}));
