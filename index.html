@@ -166,7 +166,7 @@ button{font-family:var(--font-body)}
 .loading-body-svg{animation:bodyPulse 1.8s ease-in-out infinite}
 .loading-msg{font-size:15px;color:var(--ink-500);animation:fadeIn var(--dur) ease-out;min-height:22px}
 .divider{height:1px;background:var(--line);margin:20px 0}
-.screen-footer{text-align:center;padding:12px 20px 8px;font-size:13px;color:var(--ink-400);border-top:1px solid var(--line);margin-top:auto}
+.screen-footer{text-align:center;padding:12px 20px 8px;font-size:13px;color:var(--ink-400);border-top:1px solid var(--line)}
 .screen-footer a{color:var(--ink-400);text-decoration:none}
 .screen-footer a:hover{color:var(--tmc-blue)}
 /* ── Toggles ── */
@@ -507,6 +507,32 @@ const detectPartnerFromCode = (code) => {
   return null;
 };
 /*
+ * Partner sponsor lockup (re-skin / §3B-lite).
+ * Resolves the campaign code or a ?partner= deep link to a registry record
+ * {displayName, logoUrl?, type:'employer'|'insurer'}. Unknown code -> generic
+ * "Offered through your provider", no logo. Consumer (no code) -> null, no
+ * lockup. TMC stays the clinical brand: no partner re-colouring.
+ */
+function resolvePartner(){
+  const urlP=(new URLSearchParams(window.location.search).get('partner')||'').trim();
+  const code=(st.campaignCode||(st.profile&&st.profile.campaignCode)||'').trim();
+  const key=detectPartnerFromCode(urlP)||detectPartnerFromCode(code);
+  if(key){
+    const p=PARTNERS[key];
+    return{displayName:p.brandName,logoUrl:p.logoUrl||null,type:p.type==='insurer'?'insurer':'employer'};
+  }
+  if(urlP||code)return{displayName:null,logoUrl:null,type:null,generic:true};
+  return null;
+}
+// "Offered by {Partner}" — paired with the TMC wordmark on the navy brand
+// band, sized never to overpower it
+function renderPartnerLockup(){
+  const p=resolvePartner();
+  if(!p)return'';
+  if(p.generic)return`<span class="partner-lockup">Offered through your provider</span>`;
+  return`<span class="partner-lockup">${p.logoUrl?`<img src="${p.logoUrl}" alt="" style="height:16px;width:auto">`:''}Offered by <b>${p.displayName}</b></span>`;
+}
+/*
  * detectCohortStrict — used ONLY when PARTNER_GATE_MODE is true.
  * Both email domain AND campaign/invite code must match the SAME partner.
  * Neither alone is sufficient.
@@ -547,8 +573,8 @@ const showDetailsError = (message) => {
   const container = campaignInput ? campaignInput.closest('.input-group') : null;
   const errorEl = document.createElement('div');
   errorEl.id = 'cohortError';
-  errorEl.style.cssText = 'background:#FEF2F2;border:1px solid #FECACA;border-radius:10px;padding:12px 16px;margin-top:8px;display:flex;align-items:flex-start;gap:10px;';
-  errorEl.innerHTML = `<span style="font-size:16px;flex-shrink:0">&#9888;&#65039;</span><p style="margin:0;font-size:14px;color:#991B1B;line-height:1.5">${message}</p>`;
+  errorEl.style.cssText = 'background:var(--status-vhigh-bg);border-radius:10px;padding:12px 16px;margin-top:8px;display:flex;align-items:flex-start;gap:10px;';
+  errorEl.innerHTML = `<span style="flex-shrink:0;color:var(--status-vhigh-fg);display:flex;padding-top:2px">${icon('triangle-alert',16)}</span><p style="margin:0;font-size:14px;color:var(--status-vhigh-fg);line-height:1.5">${message}</p>`;
   if (container) container.after(errorEl);
   else { const btn = document.getElementById('emailNext'); if (btn) btn.before(errorEl); }
   errorEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -566,30 +592,34 @@ function setTravelDismissed(){try{localStorage.setItem('tmcTravelBannerDismissed
 function clearProfile(){try{localStorage.removeItem('tmcProfile')}catch(e){}}
 // ===== UV & WEATHER LOGIC =====
 // getUVBand + getPersonalisedSPF now live in logic.js
-// UV gauge SVG — half-circle arc with EADO-coloured band segments and needle
+// UV gauge — compact half-arc per the design target: grey track, single
+// progress arc in the EADO band colour, navy needle. Uses the same rounded
+// UV value the UI displays (feedback 1.2).
 function renderUVGaugeSVG(uv){
-  const cx=110,cy=100,r=88,sw=14;
-  const d2r=d=>d*Math.PI/180;
-  const pt=(a,rad)=>[cx+rad*Math.cos(d2r(a)),cy-rad*Math.sin(d2r(a))];
-  const seg=(a1,a2,col)=>{const[x1,y1]=pt(a1,r),[x2,y2]=pt(a2,r);return`<path d="M${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r} 0 0 1 ${x2.toFixed(1)},${y2.toFixed(1)}" stroke="${col}" stroke-width="${sw}" fill="none" stroke-linecap="butt"/>`;};
-  // Needle uses the same rounded UV value the UI displays (feedback 1.2)
-  const uvN=Math.min(Math.max(Math.round(uv||0),0),12);
-  const na=180-(uvN/12)*180;
-  const[nx,ny]=pt(na,74);
-  return`<svg viewBox="0 0 220 105" width="220" height="105" xmlns="http://www.w3.org/2000/svg">
-    <path d="M22,${cy} A${r},${r} 0 0 1 198,${cy}" stroke="#e8e8e8" stroke-width="${sw}" fill="none"/>
-    ${seg(180,150,'#4caf50')}${seg(150,105,'#ffb300')}${seg(105,75,'#ff7043')}${seg(75,30,'#e53935')}${seg(30,0,'#8e24aa')}
-    <line x1="${cx}" y1="${cy}" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" stroke="#1a2332" stroke-width="2.5" stroke-linecap="round"/>
-    <circle cx="${cx}" cy="${cy}" r="8" fill="#1a2332"/>
-    <text x="22" y="${cy+18}" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="9" fill="#4caf50" font-weight="600">LOW</text>
-    <text x="198" y="${cy+18}" text-anchor="end" font-family="DM Sans,sans-serif" font-size="9" fill="#8e24aa" font-weight="600">EXTREME</text>
+  const uvR=Math.min(Math.max(Math.round(uv||0),0),12);
+  const band=getUVBand(uvR);
+  const cx=55,cy=58,r=43;
+  const frac=uvR/12;
+  const a=Math.PI*(1-frac);
+  const x=cx+r*Math.cos(a),y=cy-r*Math.sin(a);
+  const large=frac>0.5?1:0;
+  const nx=cx+(r-13)*Math.cos(a),ny=cy-(r-13)*Math.sin(a);
+  return`<svg viewBox="0 0 110 64" width="100" height="58" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path d="M12,58 A43,43 0 0,1 98,58" fill="none" stroke="var(--track,#E3E9F0)" stroke-width="8" stroke-linecap="round"/>
+    ${uvR>0?`<path d="M12,58 A43,43 0 ${large},1 ${x.toFixed(1)},${y.toFixed(1)}" fill="none" stroke="${band.color}" stroke-width="8" stroke-linecap="round"/>`:''}
+    <line x1="${cx}" y1="${cy}" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" stroke="#395171" stroke-width="2.5" stroke-linecap="round"/>
+    <circle cx="${cx}" cy="${cy}" r="4" fill="#395171"/>
   </svg>`;
 }
-function getWeatherEmoji(code){
-  if(code===0||code===1)return'&#9728;&#65039;';if(code===2)return'&#9925;';if(code===3)return'&#9729;&#65039;';
-  if(code>=51&&code<=67)return'&#127783;&#65039;';if(code>=71&&code<=77)return'&#10052;&#65039;';
-  if(code>=80&&code<=82)return'&#127782;&#65039;';if(code>=95)return'&#9928;&#65039;';return'&#127780;&#65039;';
+// Weather codes -> line icons (no emoji anywhere in the UI)
+function getWeatherIconName(code){
+  if(code===0||code===1)return'sun';if(code===2)return'cloud-sun';if(code===3)return'cloud';
+  if(code>=45&&code<=48)return'cloud-fog';
+  if(code>=51&&code<=57)return'cloud-drizzle';if(code>=61&&code<=67)return'cloud-rain';
+  if(code>=71&&code<=77)return'snowflake';
+  if(code>=80&&code<=82)return'cloud-rain';if(code>=95)return'cloud-lightning';return'cloud-sun';
 }
+function getWeatherEmoji(code){return icon(getWeatherIconName(code),17,'color:var(--ink-400)',getWeatherDesc(code));}
 function getWeatherDesc(code){
   const m={0:'Clear sky',1:'Mainly clear',2:'Partly cloudy',3:'Overcast',45:'Foggy',51:'Light drizzle',53:'Moderate drizzle',61:'Slight rain',63:'Moderate rain',65:'Heavy rain',71:'Light snow',80:'Light showers',81:'Moderate showers',95:'Thunderstorm'};
   return m[code]||'Variable';
@@ -717,7 +747,7 @@ function generateRecommendations(profile,wd){
   if(answers.longterm_sun_exposure==='yes')
     recs.push('Your high outdoor UV exposure means protective clothing (UPF 50+), a wide-brimmed hat, and UV-blocking sunglasses are your primary protection — with sunscreen on skin you cannot cover whenever UV is 3 or above.');
   if(hour>=11&&hour<=15&&uv!=null&&Math.round(uv)>=3)
-    recs.push('&#9728;&#65039; You are currently in the peak UV window (11:00–15:00). Seek shade, wear a hat, and avoid prolonged direct sun exposure right now.');
+    recs.push(`${icon('sun',14,'vertical-align:-2px')} You are currently in the peak UV window (11:00–15:00). Seek shade, wear a hat, and avoid prolonged direct sun exposure right now.`);
   if(skinType>=7&&!recs.some(r=>r.includes('melanoma risk')))
     recs.push('Research shows darker skin tones carry equal melanoma risk to lighter tones but face lower likelihood of early detection. Regular professional checks are equally important regardless of skin tone.');
   return recs.slice(0,5);
@@ -811,7 +841,7 @@ function renderHeader(showBack=true){
     :pct>=50?"You're halfway there"
     :'Great start — just a few more questions';
   return`<div class="header">
-    ${showBack?'<button class="header-back" onclick="goBack()">&#8592;</button>':'<div style="width:44px"></div>'}
+    ${showBack?`<button class="header-back" onclick="goBack()" aria-label="Back">${icon('arrow-left',20)}</button>`:'<div style="width:44px"></div>'}
     <div style="flex:1;text-align:center"><img src="https://themoleclinic.co.uk/wp-content/uploads/2025/02/MoleClinic-Ver-White2.png" alt="The Mole Clinic" style="height:32px;width:auto;"></div>
     <div style="width:44px"></div>
   </div>
@@ -841,10 +871,10 @@ function showCameraState(s,dataURL){
         </div>
         <div style="text-align:center">
           <button class="cam-shutter" onclick="capturePhoto()" title="Take photo" aria-label="Capture photo"></button>
-          <p style="font-size:12px;color:var(--tmc-gray-400);margin-top:10px">Tap when your right forearm is centred in the oval</p>
+          <p style="font-size:12px;color:var(--ink-400);margin-top:10px">Tap when your right forearm is centred in the oval</p>
         </div>
         <div style="margin-top:10px;text-align:center">
-          <button class="btn-ghost" onclick="stopCamera();showCameraState('A')">&#8592; Back to setup</button>
+          <button class="btn-ghost" onclick="stopCamera();showCameraState('A')">${icon('arrow-left',16)} Back to setup</button>
         </div>`;
       b.style.display='';
     }
@@ -856,11 +886,11 @@ function showCameraState(s,dataURL){
     const stC=document.getElementById('cam-state-c');
     if(stC){
       stC.innerHTML=`<div style="padding:32px 20px;text-align:center">
-        <div style="font-size:48px;margin-bottom:16px">&#128247;</div>
-        <h3 style="font-size:20px;font-weight:700;color:#1a2e2e;margin-bottom:8px">Photo captured</h3>
-        <p style="color:#666;font-size:15px;margin-bottom:28px">Your right arm photo has been saved to your profile.</p>
-        <button onclick="proceedFromAnalysis()" style="width:100%;padding:14px;background:#00A99D;color:white;border:none;border-radius:10px;font-weight:600;cursor:pointer;font-size:16px">Continue &#8594;</button>
-        <p style="margin-top:16px"><a href="#" onclick="retakePhoto();return false;" style="color:#00A99D;font-size:14px;text-decoration:none">Retake photo</a></p>
+        <div style="display:flex;justify-content:center;margin-bottom:16px;color:var(--tmc-blue)">${icon('camera',44)}</div>
+        <h3 class="title-md" style="margin-bottom:8px">Photo captured</h3>
+        <p style="color:var(--ink-500);font-size:15px;line-height:23px;margin-bottom:28px">Your right arm photo has been saved to your profile.</p>
+        <button class="btn-primary" onclick="proceedFromAnalysis()">Continue ${icon('chevron-right',18)}</button>
+        <p style="margin-top:8px"><button class="btn-ghost" onclick="retakePhoto()">Retake photo</button></p>
       </div>`;
       stC.style.display='';
     }
@@ -915,7 +945,7 @@ function renderArmOverlay(){
     ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);ctx.stroke();
     ctx.setLineDash([]);
     const fs=Math.max(11,Math.round(vw*0.03));
-    ctx.font=`bold ${fs}px DM Sans,sans-serif`;
+    ctx.font=`bold ${fs}px Inter,sans-serif`;
     ctx.fillStyle='rgba(255,255,255,0.92)';
     ctx.textAlign='right';ctx.fillText('WRIST',cx-rx-6,cy+5);
     ctx.textAlign='left';ctx.fillText('ELBOW',cx+rx+6,cy+5);
@@ -1265,8 +1295,8 @@ function showToneRetakePrompt(reason){
   stC.innerHTML=`<div class="content animate-in">
     <h2 class="title-lg">Let's try that again</h2>
     <div class="cam-error-box">
-      <div style="font-size:15px;font-weight:600;color:var(--tmc-coral);margin-bottom:6px">Skin tone reading unreliable</div>
-      <div style="font-size:13px;color:var(--tmc-gray-600);line-height:1.5">${msg}</div>
+      <div style="font-size:15px;font-weight:600;color:var(--status-vhigh-fg);margin-bottom:6px">Skin tone reading unreliable</div>
+      <div style="font-size:13px;color:var(--ink-500);line-height:1.5">${msg}</div>
     </div>
     <div style="margin-top:20px;display:flex;flex-direction:column;gap:10px">
       <button class="btn-primary" onclick="retakePhoto()">Retake photo</button>
@@ -1278,7 +1308,7 @@ function showToneRetakePrompt(reason){
 // Monk swatch scale — used for both the confirmation step and manual selection
 function renderMonkSwatches(selected,onclickFn){
   return`<div style="display:flex;gap:5px;justify-content:center;margin-top:12px">${skinTypes.map(t=>
-    `<div onclick="${onclickFn}(${t.id})" role="button" aria-label="Monk tone ${t.id}" style="width:27px;height:27px;border-radius:50%;background:${t.color};cursor:pointer;box-sizing:border-box;border:${t.id===selected?'3px solid var(--tmc-teal)':'1.5px solid rgba(0,0,0,.15)'}"></div>`).join('')}</div>`;
+    `<div onclick="${onclickFn}(${t.id})" role="button" aria-label="Monk tone ${t.id}" style="width:27px;height:27px;border-radius:50%;background:${t.color};cursor:pointer;box-sizing:border-box;border:${t.id===selected?'3px solid var(--tmc-blue)':'1.5px solid rgba(0,0,0,.15)'}"></div>`).join('')}</div>`;
 }
 // Manual skin tone selection — used when the user skips the camera, when
 // detection fails, or after a failed retry. Source recorded as 'manual'.
@@ -1291,10 +1321,10 @@ function showManualToneSelect(){
     <p class="subtitle-sm">Tap the swatch on the Monk scale that best matches the inside of your right forearm.</p>
     <div class="card" style="margin-top:16px">
       ${renderMonkSwatches(st.skinType,'manualToneTap')}
-      <p id="manualToneLabel" style="text-align:center;font-size:13px;color:var(--tmc-gray-600);margin-top:10px">${st.skinType?`Monk tone ${st.skinType} of 10`:'No tone selected yet'}</p>
+      <p id="manualToneLabel" style="text-align:center;font-size:13px;color:var(--ink-500);margin-top:10px">${st.skinType?`Monk tone ${st.skinType} of 10`:'No tone selected yet'}</p>
     </div>
     <div style="margin-top:20px">
-      <button class="btn-primary" id="manualToneNext" onclick="confirmManualTone()" ${st.skinType?'':'disabled'}>Continue &#8594;</button>
+      <button class="btn-primary" id="manualToneNext" onclick="confirmManualTone()" ${st.skinType?'':'disabled'}>Continue ${icon('chevron-right',18)}</button>
     </div>
   </div>`;
   showCameraState('C');
@@ -1306,7 +1336,7 @@ function manualToneTap(id){
   if(!stC)return;
   // refresh swatch highlight + label + button in place
   const card=stC.querySelector('.card');
-  if(card)card.innerHTML=`${renderMonkSwatches(id,'manualToneTap')}<p id="manualToneLabel" style="text-align:center;font-size:13px;color:var(--tmc-gray-600);margin-top:10px">Monk tone ${id} of 10</p>`;
+  if(card)card.innerHTML=`${renderMonkSwatches(id,'manualToneTap')}<p id="manualToneLabel" style="text-align:center;font-size:13px;color:var(--ink-500);margin-top:10px">Monk tone ${id} of 10</p>`;
   const btn=document.getElementById('manualToneNext');
   if(btn)btn.disabled=false;
 }
@@ -1332,8 +1362,8 @@ function handleAnalysisError(e){
   stC.innerHTML=`<div class="content animate-in">
     <h2 class="title-lg">Analysis failed</h2>
     <div class="cam-error-box">
-      <div style="font-size:15px;font-weight:600;color:var(--tmc-coral);margin-bottom:6px">Could not analyse photo</div>
-      <div style="font-size:13px;color:var(--tmc-gray-600)">${e.message||'Please check your API key and try again.'}</div>
+      <div style="font-size:15px;font-weight:600;color:var(--status-vhigh-fg);margin-bottom:6px">Could not analyse photo</div>
+      <div style="font-size:13px;color:var(--ink-500)">${e.message||'Please check your API key and try again.'}</div>
     </div>
     <div style="margin-top:20px;display:flex;flex-direction:column;gap:10px">
       <button class="btn-primary" onclick="showCameraState('A')">Try Again</button>
@@ -1348,17 +1378,17 @@ function showAnalysisResults(){
   const moleLabels={under7:'Fewer than 7',['7to10']:'7–10',['11plus']:'11 or more'};
   const bodyLabels={under10:'Fewer than 10 (typical)','10-20':'10–20','20-50':'20–50','10to50':'10–50 (moderate)','50plus':'50 or more (elevated)'};
   stC.innerHTML=`<div class="content animate-in">
-    <h2 class="title-lg">&#10003; Analysis complete</h2>
+    <h2 class="title-lg" style="display:flex;align-items:center;gap:8px">${icon('check',24,'color:var(--status-low-fg)','Complete')} Analysis complete</h2>
     ${st.capturedPhoto?`<img src="${st.capturedPhoto}" class="cam-result-img" alt="Captured right forearm photo" style="margin-top:14px">`:``}
     <div class="cam-result-card">
-      <div style="font-size:13px;font-weight:700;color:var(--tmc-teal-dark);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Your detected skin tone</div>
+      <div style="font-size:13px;font-weight:700;color:var(--blue-700);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Your detected skin tone</div>
       <div id="toneConfirmSwatches">${renderMonkSwatches(sa.mst,'adjustDetectedTone')}</div>
-      <p id="toneConfirmLabel" style="text-align:center;font-size:13px;color:var(--tmc-gray-600);margin-top:10px">Monk tone <strong>${sa.mst}</strong> of 10 — detected from your photo</p>
+      <p id="toneConfirmLabel" style="text-align:center;font-size:13px;color:var(--ink-500);margin-top:10px">Monk tone <strong>${sa.mst}</strong> of 10 — detected from your photo</p>
       <p style="text-align:center;font-size:14px;font-weight:600;color:var(--tmc-navy);margin-top:10px">Does this look right?</p>
-      <p style="text-align:center;font-size:12px;color:var(--tmc-gray-600);margin-top:4px">Tap a different swatch to adjust it.</p>
+      <p style="text-align:center;font-size:12px;color:var(--ink-500);margin-top:4px">Tap a different swatch to adjust it.</p>
     </div>
     <div class="cam-result-card" style="margin-top:10px">
-      <div style="font-size:13px;font-weight:700;color:var(--tmc-teal-dark);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">AI mole analysis</div>
+      <div style="font-size:13px;font-weight:700;color:var(--blue-700);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">AI mole analysis</div>
       ${sa.moleRaw?`<div class="cam-result-row">
         <span class="cam-result-label">Visible right-arm moles</span>
         <span class="cam-result-value">${moleLabels[sa.moleRaw]||sa.moleRaw}</span>
@@ -1372,10 +1402,10 @@ function showAnalysisResults(){
         <span class="cam-result-value" style="text-transform:capitalize">${sa.confidence}</span>
       </div>
     </div>
-    <p style="font-size:11px;color:var(--tmc-gray-400);margin-top:10px;line-height:1.5">Right-arm mole count predicts body mole burden per Bataille et al. 2015 (King's College London). Body mole count question will be pre-filled in your questionnaire.</p>
+    <p style="font-size:11px;color:var(--ink-400);margin-top:10px;line-height:1.5">Right-arm mole count predicts body mole burden per Bataille et al. 2015 (King's College London). Body mole count question will be pre-filled in your questionnaire.</p>
     <div style="margin-top:20px;display:flex;gap:10px">
       <button class="btn-secondary" onclick="retakePhoto()" style="flex:1">Retake photo</button>
-      <button class="btn-primary" onclick="proceedFromAnalysis()" style="flex:1">Confirm &#8594;</button>
+      <button class="btn-primary" onclick="proceedFromAnalysis()" style="flex:1">Confirm ${icon('chevron-right',18)}</button>
     </div>
   </div>`;
 }
@@ -1387,22 +1417,23 @@ function proceedFromAnalysis(){st.currentQuestion=0;navigate('q_intro');}
 function renderWelcome(){
   return`<div class="screen">
     <div class="welcome-hero animate-in">
-      <img src="https://themoleclinic.co.uk/wp-content/uploads/2025/02/MoleClinic-Ver-White2.png" alt="The Mole Clinic" class="welcome-hero-logo" style="height:90px;width:auto;display:block;">
+      ${(()=>{const lockup=renderPartnerLockup();return lockup?`<div style="margin-bottom:14px">${lockup}</div>`:'';})()}
+      <img src="https://themoleclinic.co.uk/wp-content/uploads/2025/02/MoleClinic-Ver-White2.png" alt="The Mole Clinic" class="welcome-hero-logo" style="height:80px;width:auto;display:block;">
       <h1 class="title-xl">Free Skin<br>Health Check</h1>
       <p class="subtitle">Get your personalised Mole Clinic Profile in minutes. Know your risk. Know your next step.</p>
-      <div class="welcome-stat animate-in-delay-1">&#128300; Over 16,000 people are diagnosed with melanoma skin cancer in the UK each year.</div>
+      <div class="welcome-stat animate-in-delay-1">${icon('microscope',16)} Over 16,000 people are diagnosed with melanoma skin cancer in the UK each year.</div>
       <div class="welcome-social-proof animate-in-delay-2">Used by patients across The Mole Clinic's UK clinics</div>
     </div>
     <div class="content">
       <div class="feature-list">
-        <div class="feature-item animate-in-delay-1"><div class="feature-icon feature-icon-teal">&#129504;</div><div><div class="feature-title">AI Skin Analysis</div><div class="feature-desc">Camera analysis of your right forearm to detect your Monk skin tone and mole profile — powered by Claude AI</div></div></div>
-        <div class="feature-item animate-in-delay-2"><div class="feature-icon feature-icon-coral">&#9728;</div><div><div class="feature-title">Live UV &amp; Sun Safety</div><div class="feature-desc">Real-time UV index with personalised SPF recommendation for your skin tone</div></div></div>
-        <div class="feature-item animate-in-delay-3"><div class="feature-icon feature-icon-gold">&#128202;</div><div><div class="feature-title">Your Skin Safety Dashboard</div><div class="feature-desc">Clinically informed questions covering your skin profile, personal history, UV exposure, and any areas of concern</div></div></div>
+        <div class="feature-item animate-in-delay-1"><div class="feature-icon">${icon('sparkles',20)}</div><div><div class="feature-title">AI Skin Analysis</div><div class="feature-desc">Camera analysis of your right forearm to detect your Monk skin tone and mole profile — powered by Claude AI</div></div></div>
+        <div class="feature-item animate-in-delay-2"><div class="feature-icon">${icon('sun',20)}</div><div><div class="feature-title">Live UV &amp; Sun Safety</div><div class="feature-desc">Real-time UV index with personalised SPF recommendation for your skin tone</div></div></div>
+        <div class="feature-item animate-in-delay-3"><div class="feature-icon">${icon('layout-dashboard',20)}</div><div><div class="feature-title">Your Skin Safety Dashboard</div><div class="feature-desc">Clinically informed questions covering your skin profile, personal history, UV exposure, and any areas of concern</div></div></div>
       </div>
       <div class="disclaimer animate-in-delay-4"><strong>Important:</strong> This is not a medical diagnosis. This tool helps you understand your skin cancer risk and recommends appropriate professional skin checks.</div>
-      <div class="trust-badge animate-in-delay-4">Your data stays on your device — we never sell your details</div>
+      <div class="trust-badge animate-in-delay-4">${icon('shield-check',15,'color:var(--tmc-blue)')} Your data stays on your device — we never sell your details</div>
     </div>
-    <div class="bottom-action"><button class="btn-primary" onclick="navigate('email')">Start Your Free Check &#8594;</button></div>
+    <div class="bottom-action"><button class="btn-primary" onclick="navigate('email')">Start Your Free Check ${icon('chevron-right',18)}</button></div>
     ${renderFooter()}
   </div>`;
 }
@@ -1416,11 +1447,11 @@ function renderEmail(){
         <div class="input-group"><label class="input-label">First name</label><input class="input-field" type="text" id="nameInput" placeholder="Your first name" value="${st.name}" autocomplete="given-name"></div>
         <div class="input-group"><label class="input-label">Email address</label><input class="input-field" type="email" id="emailInput" placeholder="your@email.com" value="${st.email}" autocomplete="email"></div>
         <div class="input-group"><label class="input-label">Postcode</label><input class="input-field" type="text" id="postcodeInput" placeholder="e.g. M1 2AB" value="${st.postcode}" maxlength="8" style="text-transform:uppercase" autocomplete="postal-code"></div>
-        <div class="input-group"><label class="input-label" style="font-weight:500;color:var(--tmc-gray-600)">Campaign code <span style="font-weight:400;font-size:12px;color:var(--tmc-gray-400)">(optional)</span></label><input class="input-field" type="text" id="campaignInput" placeholder="e.g. NORTH2026" value="${st.campaignCode||''}" autocomplete="off" style="text-transform:uppercase"><p style="font-size:12px;color:var(--tmc-gray-400);margin-top:4px">Have a campaign code from your employer or event? Enter it here — otherwise leave blank.</p></div>
-        <p style="font-size:12px;color:var(--tmc-gray-600);margin-top:4px">Your data is processed in accordance with GDPR. We'll never sell your details.</p>
+        <div class="input-group"><label class="input-label" style="font-weight:500;color:var(--ink-500)">Campaign code <span style="font-weight:400;font-size:12px;color:var(--ink-400)">(optional)</span></label><input class="input-field" type="text" id="campaignInput" placeholder="e.g. NORTH2026" value="${st.campaignCode||''}" autocomplete="off" style="text-transform:uppercase"><p style="font-size:12px;color:var(--ink-400);margin-top:4px">Have a campaign code from your employer or event? Enter it here — otherwise leave blank.</p></div>
+        <p style="font-size:12px;color:var(--ink-500);margin-top:4px">Your data is processed in accordance with GDPR. We'll never sell your details.</p>
       </div>
     </div>
-    <div class="bottom-action"><button class="btn-primary" id="emailNext" disabled>Continue &#8594;</button></div>
+    <div class="bottom-action"><button class="btn-primary" id="emailNext" disabled>Continue ${icon('chevron-right',18)}</button></div>
     ${renderFooter()}
   </div>`;
 }
@@ -1447,7 +1478,7 @@ function renderConsent(){
       ${st.campaignCode?`<div class="consent-info-box" style="margin-top:12px"><strong>Campaign code entered:</strong> your results stay on this device and are not shared with your employer or event organiser in this version of the app.</div>`:''}
       <div class="disclaimer">Your photos and analysis data are processed locally and securely. No images are stored on our servers.</div>
     </div>
-    <div class="bottom-action"><button class="btn-primary" id="consentNext" ${!st.consentData?'disabled':''}>Continue &#8594;</button></div>
+    <div class="bottom-action"><button class="btn-primary" id="consentNext" ${!st.consentData?'disabled':''}>Continue ${icon('chevron-right',18)}</button></div>
     ${renderFooter()}
   </div>`;
 }
@@ -1455,28 +1486,28 @@ function renderArmCamera(){
   return`<div class="screen">
     ${renderHeader()}
     <div id="cam-state-a" class="content animate-in">
-      <h2 class="title-lg">&#129504; Right Arm Skin Analysis</h2>
+      <h2 class="title-lg">Right Arm Skin Analysis</h2>
       <p class="subtitle">We'll use your camera and Claude AI to detect your Monk skin tone and count visible moles on your <strong>right forearm</strong> — automatically filling in part of your profile. The evidence behind arm mole counting is specific to the right arm.</p>
       <div class="card" style="margin-top:16px;padding:14px;text-align:center">
         <svg viewBox="0 0 320 150" width="100%" style="max-width:320px" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Diagram of a correctly framed right inner forearm: wrist on the left, elbow on the right, on a plain background">
-          <rect x="0" y="0" width="320" height="150" rx="12" fill="#eef1f4"/>
-          <ellipse cx="34" cy="72" rx="15" ry="22" fill="#d7bd96" stroke="#b89a73" stroke-width="2"/>
-          <path d="M42,72 C42,58 62,52 84,52 L240,46 C268,46 290,57 292,72 C290,87 268,98 240,98 L84,92 C62,92 42,86 42,72 Z" fill="#d7bd96" stroke="#b89a73" stroke-width="2"/>
+          <rect x="0" y="0" width="320" height="150" rx="12" fill="#F0F6FC"/>
+          <ellipse cx="33" cy="72" rx="14" ry="21" fill="#E8D3BC" stroke="#395171" stroke-width="1.5"/>
+          <path d="M42,72 C42,60 60,54 84,53 L238,47 C266,47 288,57 290,72 C288,87 266,97 238,97 L84,91 C60,90 42,84 42,72 Z" fill="#E8D3BC" stroke="#395171" stroke-width="1.5"/>
           <circle cx="148" cy="68" r="3" fill="#6b4630"/><circle cx="198" cy="78" r="2.5" fill="#6b4630"/><circle cx="122" cy="80" r="2" fill="#6b4630"/>
-          <ellipse cx="166" cy="72" rx="120" ry="48" fill="none" stroke="#2ec4b6" stroke-width="2.5" stroke-dasharray="10,6"/>
-          <text x="34" y="132" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="12" font-weight="700" fill="#1a2332">WRIST</text>
-          <text x="282" y="132" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="12" font-weight="700" fill="#1a2332">ELBOW</text>
+          <ellipse cx="166" cy="72" rx="120" ry="48" fill="none" stroke="#05B1C0" stroke-width="2" stroke-dasharray="10,6"/>
+          <text x="34" y="132" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" font-weight="600" letter-spacing="1" fill="#395171">WRIST</text>
+          <text x="282" y="132" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" font-weight="600" letter-spacing="1" fill="#395171">ELBOW</text>
         </svg>
-        <p style="font-size:12px;color:var(--tmc-gray-600);margin-top:8px;line-height:1.5">Your screen should mirror this: <strong>right inner forearm</strong>, wrist on the left, elbow on the right, on a plain background.</p>
+        <p style="font-size:12px;color:var(--ink-500);margin-top:8px;line-height:1.5">Your screen should mirror this: <strong>right inner forearm</strong>, wrist on the left, elbow on the right, on a plain background.</p>
       </div>
       <div class="photo-tips-list">
-        <div class="photo-tip-row"><div class="photo-tip-emoji">&#129305;</div><div class="photo-tip-body"><strong>Right arm, left hand</strong>Hold your phone in your left hand to photograph your right forearm — that's the right way round. Palm up, sleeve rolled to the elbow.</div></div>
-        <div class="photo-tip-row"><div class="photo-tip-emoji">&#128759;</div><div class="photo-tip-body"><strong>Natural daylight works best</strong>Face a window — avoid warm yellow indoor lighting and harsh shadows, as they affect the skin tone reading.</div></div>
-        <div class="photo-tip-row"><div class="photo-tip-emoji">&#129003;</div><div class="photo-tip-body"><strong>Plain background</strong>Rest your arm on a plain, non-beige surface if possible — beige can be mistaken for skin.</div></div>
-        <div class="photo-tip-row"><div class="photo-tip-emoji">&#128247;</div><div class="photo-tip-body"><strong>30–40 cm from camera</strong>Fill the oval with your right forearm from wrist to elbow.</div></div>
+        <div class="photo-tip-row"><div class="photo-tip-emoji">${icon('hand',22)}</div><div class="photo-tip-body"><strong>Right arm, left hand</strong>Hold your phone in your left hand to photograph your right forearm — that's the right way round. Palm up, sleeve rolled to the elbow.</div></div>
+        <div class="photo-tip-row"><div class="photo-tip-emoji">${icon('sun-medium',22)}</div><div class="photo-tip-body"><strong>Natural daylight works best</strong>Face a window — avoid warm yellow indoor lighting and harsh shadows, as they affect the skin tone reading.</div></div>
+        <div class="photo-tip-row"><div class="photo-tip-emoji">${icon('square',22)}</div><div class="photo-tip-body"><strong>Plain background</strong>Rest your arm on a plain, non-beige surface if possible — beige can be mistaken for skin.</div></div>
+        <div class="photo-tip-row"><div class="photo-tip-emoji">${icon('camera',22)}</div><div class="photo-tip-body"><strong>30–40 cm from camera</strong>Fill the oval with your right forearm from wrist to elbow.</div></div>
       </div>
       <div style="margin-top:20px;display:flex;flex-direction:column;gap:12px">
-        <button class="btn-primary" id="camStartBtn" onclick="startCamera()">Start Camera &#8594;</button>
+        <button class="btn-primary" id="camStartBtn" onclick="startCamera()">Start Camera ${icon('chevron-right',18)}</button>
         <button class="btn-ghost" onclick="proceedWithoutAnalysis()">Skip — I'll enter details manually</button>
       </div>
     </div>
@@ -1493,12 +1524,21 @@ function renderQIntro(){
     <div class="q-intro-screen animate-in">
       <h2 class="title-lg" style="color:white;margin-bottom:20px">About your skin risk profile</h2>
       <div style="font-size:15px;color:rgba(255,255,255,.85);line-height:1.75">
-        ${st.campaignCode?`<p style="margin-bottom:16px">As part of your workplace skin-health check, the questions about outdoor work and lifetime sun exposure are especially relevant — please answer for your whole working life, not just your current role.</p>`:''}
+        ${(()=>{
+          // Sponsor-aware framing: employer vs insurer vs generic provider.
+          // Clinical content is identical regardless (§3B).
+          const partner=resolvePartner();
+          if(!partner)return'';
+          const lead=partner.type==='insurer'?`As part of your health cover with ${partner.displayName},`
+            :partner.type==='employer'?`As part of your workplace skin-health check,`
+            :`As part of your skin-health check through your provider,`;
+          return`<p style="margin-bottom:16px">${lead} the questions about outdoor work and lifetime sun exposure are especially relevant — please answer for your whole working life, not just your current role.</p>`;
+        })()}
         <p style="margin-bottom:16px">Skin cancer can affect people of all skin types and does not always arise from moles. Some skin cancers are related to moles and changes over time. Others — particularly non-melanoma skin cancers such as basal cell carcinoma (BCC) and squamous cell carcinoma (SCC) — are related to cumulative sun exposure and sun-damaged skin.</p>
         <p>These questions help us understand different types of skin cancer risk and recommend the most appropriate professional skin check for you.</p>
       </div>
     </div>
-    <div class="bottom-action"><button class="btn-primary" onclick="st.currentQuestion=0;navigate('questionnaire')">Continue &#8594;</button></div>
+    <div class="bottom-action"><button class="btn-primary" onclick="st.currentQuestion=0;navigate('questionnaire')">Continue ${icon('chevron-right',18)}</button></div>
     ${renderFooter()}
   </div>`;
 }
@@ -1509,7 +1549,7 @@ function renderQuestionnaire(){
   const isLastVis=vis[vis.length-1]?.id===q.id;
   const nudgeVal=q.multiselect?null:sel;
   const nudge=`<div id="qNudge">${riskNudges[q.id]&&nudgeVal&&riskNudges[q.id][nudgeVal]
-    ?`<div class="risk-nudge"><div class="risk-nudge-icon">&#8505;</div><div class="risk-nudge-text">${riskNudges[q.id][nudgeVal]}</div></div>`:''}</div>`;
+    ?`<div class="risk-nudge"><div class="risk-nudge-icon">${icon('info',16)}</div><div class="risk-nudge-text">${riskNudges[q.id][nudgeVal]}</div></div>`:''}</div>`;
   const isDisabled=q.multiselect?(!Array.isArray(sel)||sel.length===0):!sel;
   let optionsHtml='';
   if(q.multiselect){
@@ -1544,7 +1584,7 @@ function renderQuestionnaire(){
       <div style="margin-top:20px">${optionsHtml}</div>
       ${nudge}
     </div>
-    <div class="bottom-action"><button class="btn-primary" id="questionNext" ${isDisabled?'disabled':''}>${isLastVis?'Continue &#8594;':'Next Question &#8594;'}</button></div>
+    <div class="bottom-action"><button class="btn-primary" id="questionNext" ${isDisabled?'disabled':''}>${isLastVis?`Continue ${icon('chevron-right',18)}`:`Next Question ${icon('chevron-right',18)}`}</button></div>
     ${renderFooter()}
   </div>`;
 }
@@ -1566,16 +1606,16 @@ function renderMoleEducationPanel(){
   </svg>`;
   return`<div style="margin-top:14px">
     <div class="collapsible-header" onclick="toggleMoleEducation()">
-      <div class="collapsible-title">&#128269; What does a suspicious mole look like?</div>
-      <div class="collapsible-chevron" id="eduChevron">&#9660;</div>
+      <div class="collapsible-title">${icon('search',16,'color:var(--tmc-blue)')} What does a suspicious mole look like?</div>
+      <div class="collapsible-chevron" id="eduChevron">${icon('chevron-down',16)}</div>
     </div>
     <div class="collapsible-body" id="eduCollapse">
       <div class="collapsible-inner">
         <div style="display:flex;gap:12px">
-          <div style="flex:1;text-align:center">${typicalSVG}<div style="font-size:12px;color:var(--tmc-gray-600);margin-top:6px;line-height:1.4"><strong style="color:#2e7d32">Typical:</strong> round, one even colour, smooth edge</div></div>
-          <div style="flex:1;text-align:center">${suspiciousSVG}<div style="font-size:12px;color:var(--tmc-gray-600);margin-top:6px;line-height:1.4"><strong style="color:#c62828">Get it checked:</strong> asymmetric, ragged border, mixed shades</div></div>
+          <div style="flex:1;text-align:center">${typicalSVG}<div style="font-size:12px;color:var(--ink-500);margin-top:6px;line-height:1.4"><strong style="color:#2e7d32">Typical:</strong> round, one even colour, smooth edge</div></div>
+          <div style="flex:1;text-align:center">${suspiciousSVG}<div style="font-size:12px;color:var(--ink-500);margin-top:6px;line-height:1.4"><strong style="color:#c62828">Get it checked:</strong> asymmetric, ragged border, mixed shades</div></div>
         </div>
-        <p style="font-size:12px;color:var(--tmc-gray-600);margin-top:10px;line-height:1.5">A <strong>new</strong> mole, or one that is <strong>changing</strong>, matters more than moles that have looked the same for years.</p>
+        <p style="font-size:12px;color:var(--ink-500);margin-top:10px;line-height:1.5">A <strong>new</strong> mole, or one that is <strong>changing</strong>, matters more than moles that have looked the same for years.</p>
       </div>
     </div>
   </div>`;
@@ -1598,7 +1638,7 @@ function refreshQuestionUI(){
   if(nudgeWrap){
     const nudgeVal=q.multiselect?null:sel;
     const msg=riskNudges[q.id]&&nudgeVal?riskNudges[q.id][nudgeVal]:null;
-    nudgeWrap.innerHTML=msg?`<div class="risk-nudge"><div class="risk-nudge-icon">&#8505;</div><div class="risk-nudge-text">${msg}</div></div>`:'';
+    nudgeWrap.innerHTML=msg?`<div class="risk-nudge"><div class="risk-nudge-icon">${icon('info',16)}</div><div class="risk-nudge-text">${msg}</div></div>`:'';
   }
   const btn=document.getElementById('questionNext');
   if(btn)btn.disabled=q.multiselect?(!Array.isArray(sel)||sel.length===0):!sel;
@@ -1618,7 +1658,7 @@ function renderABCDE(){
       </div>
       <div class="disclaimer" style="margin-top:16px"><strong>Don't worry</strong> — noticing these features doesn't mean you have skin cancer. It simply means a professional check is recommended.</div>
     </div>
-    <div class="bottom-action"><button class="btn-primary" onclick="navigate('consent_location')">Continue &#8594;</button></div>
+    <div class="bottom-action"><button class="btn-primary" onclick="navigate('consent_location')">Continue ${icon('chevron-right',18)}</button></div>
     ${renderFooter()}
   </div>`;
 }
@@ -1626,7 +1666,7 @@ function renderConsentLocation(){
   return`<div class="screen">
     ${renderHeader()}
     <div class="content animate-in">
-      <div class="consent-icon">&#128205;</div>
+      <div class="consent-icon">${icon('map-pin',40)}</div>
       <h2 class="title-lg">Enable Location Services</h2>
       <p class="subtitle">To show you real-time UV index and personalised sun safety recommendations, we'd like to access your device location. This is stored only on your device and never sent to our servers.</p>
       <div class="card" style="margin-top:24px">
@@ -1637,10 +1677,10 @@ function renderConsentLocation(){
       </div>
       <div class="consent-info-box">Your location is processed entirely on this device and never transmitted to our servers or third parties. You can revoke this permission at any time in your browser settings.</div>
       ${st.consentLocation
-        ?`<div class="consent-success-box"><span>&#10003;</span><span>Location access granted. We'll fetch live UV data for your area.</span></div>`
-        :`<p style="margin-top:12px;font-size:13px;color:var(--tmc-gray-400);text-align:center">You can use the app without location — UV data will not be available.</p>`}
+        ?`<div class="consent-success-box">${icon('check',16)}<span>Location access granted. We'll fetch live UV data for your area.</span></div>`
+        :`<p style="margin-top:12px;font-size:13px;color:var(--ink-400);text-align:center">You can use the app without location — UV data will not be available.</p>`}
     </div>
-    <div class="bottom-action"><button class="btn-primary" onclick="afterLocationConsent()">Continue &#8594;</button></div>
+    <div class="bottom-action"><button class="btn-primary" onclick="afterLocationConsent()">Continue ${icon('chevron-right',18)}</button></div>
     ${renderFooter()}
   </div>`;
 }
@@ -1648,7 +1688,7 @@ function renderConsentTravel(){
   return`<div class="screen">
     ${renderHeader()}
     <div class="content animate-in">
-      <div class="consent-icon">&#9992;</div>
+      <div class="consent-icon">${icon('plane',40)}</div>
       <h2 class="title-lg">Travel &amp; Holiday Detection</h2>
       <p class="subtitle">We can monitor location changes to detect when you've been abroad and remind you to book a post-holiday skin check — a clinically important time to review your skin. Location history is stored only on this device.</p>
       <div class="card" style="margin-top:24px">
@@ -1659,7 +1699,7 @@ function renderConsentTravel(){
       </div>
       <div class="consent-info-box">Location history (country-level) is stored only on this device. No data leaves your phone.</div>
     </div>
-    <div class="bottom-action"><button class="btn-primary" onclick="navigate('consent_notifications')">Continue &#8594;</button></div>
+    <div class="bottom-action"><button class="btn-primary" onclick="navigate('consent_notifications')">Continue ${icon('chevron-right',18)}</button></div>
     ${renderFooter()}
   </div>`;
 }
@@ -1667,35 +1707,35 @@ function renderConsentNotifications(){
   return`<div class="screen">
     ${renderHeader()}
     <div class="content animate-in">
-      <div class="consent-icon">&#128276;</div>
+      <div class="consent-icon">${icon('bell',40)}</div>
       <h2 class="title-lg">Stay Sun Safe Daily</h2>
       <p class="subtitle">Bookmark this app and check in each morning for your daily UV index and personalised sun safety advice. Push notification reminders are coming in a future update.</p>
       <div class="card" style="margin-top:24px;text-align:center;padding:28px">
-        <div style="font-size:40px;margin-bottom:12px">&#128278;</div>
+        <div style="display:flex;justify-content:center;margin-bottom:12px;color:var(--tmc-blue)">${icon('bookmark',36)}</div>
         <div style="font-size:15px;font-weight:600;color:var(--tmc-navy);margin-bottom:6px">Bookmark this app</div>
-        <div style="font-size:13px;color:var(--tmc-gray-600);line-height:1.5">Add to your home screen for quick daily access to your UV safety dashboard.</div>
+        <div style="font-size:13px;color:var(--ink-500);line-height:1.5">Add to your home screen for quick daily access to your UV safety dashboard.</div>
       </div>
-      <div class="consent-info-box" style="margin-top:16px">&#128293; Push notifications will be available in a future update. Check back soon.</div>
+      <div class="consent-info-box" style="margin-top:16px">${icon('info',14,'vertical-align:-2px')} Push notifications will be available in a future update. Check back soon.</div>
     </div>
-    <div class="bottom-action"><button class="btn-primary" onclick="finishOnboarding()">Got it &#8594;</button></div>
+    <div class="bottom-action"><button class="btn-primary" onclick="finishOnboarding()">Got it ${icon('chevron-right',18)}</button></div>
     ${renderFooter()}
   </div>`;
 }
 function renderLoading(){
   return`<div class="screen">
-    <div style="background:#2ec4b6;padding:calc(14px + env(safe-area-inset-top,0px)) 20px 14px;text-align:center;position:sticky;top:0;z-index:100"><img src="https://themoleclinic.co.uk/wp-content/uploads/2025/02/MoleClinic-Ver-White2.png" alt="The Mole Clinic" style="height:36px;width:auto;"></div>
+    <div style="background:var(--tmc-navy);padding:calc(14px + env(safe-area-inset-top,0px)) 20px 14px;text-align:center;position:sticky;top:0;z-index:100"><img src="https://themoleclinic.co.uk/wp-content/uploads/2025/02/MoleClinic-Ver-White2.png" alt="The Mole Clinic" style="height:36px;width:auto;"></div>
     <div class="loading-screen">
       <div class="loading-body-wrap">
         <svg class="loading-body-svg" viewBox="0 0 100 200" width="100" height="200" xmlns="http://www.w3.org/2000/svg">
-          <ellipse cx="50" cy="16" rx="14" ry="13" fill="none" stroke="var(--tmc-teal)" stroke-width="2"/>
-          <rect x="43" y="28" width="14" height="11" rx="3" fill="none" stroke="var(--tmc-teal)" stroke-width="2"/>
-          <path d="M22 37 Q22 34 32 33 L44 32 L56 32 L68 33 Q78 34 78 37 L76 67 L24 67 Z" fill="none" stroke="var(--tmc-teal)" stroke-width="2"/>
-          <path d="M24 40 Q18 43 16 52 L13 90 Q12 95 18 96 Q24 97 25 92 L27 67" fill="none" stroke="var(--tmc-teal)" stroke-width="2"/>
-          <path d="M76 40 Q82 43 84 52 L87 90 Q88 95 82 96 Q76 97 75 92 L73 67" fill="none" stroke="var(--tmc-teal)" stroke-width="2"/>
-          <path d="M24 67 L23 103 Q24 112 32 114 L68 114 Q76 112 77 103 L76 67 Z" fill="none" stroke="var(--tmc-teal)" stroke-width="2"/>
-          <path d="M32 114 Q26 116 24 123 L23 130 L77 130 L76 123 Q74 116 68 114 Z" fill="none" stroke="var(--tmc-teal)" stroke-width="2"/>
-          <path d="M23 130 L21 178 Q20 185 28 186 Q36 187 38 180 L42 130 Z" fill="none" stroke="var(--tmc-teal)" stroke-width="2"/>
-          <path d="M77 130 L79 178 Q80 185 72 186 Q64 187 62 180 L58 130 Z" fill="none" stroke="var(--tmc-teal)" stroke-width="2"/>
+          <ellipse cx="50" cy="16" rx="14" ry="13" fill="none" stroke="var(--tmc-blue)" stroke-width="2"/>
+          <rect x="43" y="28" width="14" height="11" rx="3" fill="none" stroke="var(--tmc-blue)" stroke-width="2"/>
+          <path d="M22 37 Q22 34 32 33 L44 32 L56 32 L68 33 Q78 34 78 37 L76 67 L24 67 Z" fill="none" stroke="var(--tmc-blue)" stroke-width="2"/>
+          <path d="M24 40 Q18 43 16 52 L13 90 Q12 95 18 96 Q24 97 25 92 L27 67" fill="none" stroke="var(--tmc-blue)" stroke-width="2"/>
+          <path d="M76 40 Q82 43 84 52 L87 90 Q88 95 82 96 Q76 97 75 92 L73 67" fill="none" stroke="var(--tmc-blue)" stroke-width="2"/>
+          <path d="M24 67 L23 103 Q24 112 32 114 L68 114 Q76 112 77 103 L76 67 Z" fill="none" stroke="var(--tmc-blue)" stroke-width="2"/>
+          <path d="M32 114 Q26 116 24 123 L23 130 L77 130 L76 123 Q74 116 68 114 Z" fill="none" stroke="var(--tmc-blue)" stroke-width="2"/>
+          <path d="M23 130 L21 178 Q20 185 28 186 Q36 187 38 180 L42 130 Z" fill="none" stroke="var(--tmc-blue)" stroke-width="2"/>
+          <path d="M77 130 L79 178 Q80 185 72 186 Q64 187 62 180 L58 130 Z" fill="none" stroke="var(--tmc-blue)" stroke-width="2"/>
         </svg>
         <div class="loading-scan-line"></div>
       </div>
@@ -1720,7 +1760,7 @@ function renderClinicListRows(list){
 }
 function toggleClinicList(){
   const el=document.getElementById('clinicListBody'),ch=document.getElementById('clinicChevron');
-  if(el){const open=el.classList.toggle('open');if(ch)ch.textContent=open?'▲':'▼';}
+  if(el){const open=el.classList.toggle('open');if(ch)ch.classList.toggle('open',open);}
 }
 // Coordinate priority: live geolocation from the profile → postcode lookup →
 // no location (full clinic picker, expanded — never guess a clinic)
@@ -1735,14 +1775,19 @@ async function initNearestClinicAsync(){
   const sorted=getClinicsByDistance(lat,lon);
   const hasDist=sorted[0]&&sorted[0].distance!=null;
   if(hasDist){
-    el.innerHTML=`<div class="book-card-row" style="border-bottom:none"><span class="book-card-label">Your nearest clinic</span><span class="book-card-value">${sorted[0].name} (${formatMiles(sorted[0].distance)} miles)</span></div>
-      <button class="clinic-expander-toggle" onclick="toggleClinicList()">Choose a different clinic <span id="clinicChevron">▼</span></button>
+    el.innerHTML=`<div class="book-card-row" role="button" tabindex="0" style="border-bottom:none;cursor:pointer" onclick="toggleClinicList()" aria-label="Your nearest clinic — choose a different clinic">
+        <span class="book-card-label" style="display:inline-flex;align-items:center;gap:8px">${icon('map-pin',16,'color:var(--tmc-cyan)')} Nearest clinic</span>
+        <span class="book-card-value">${sorted[0].name} &middot; ${formatMiles(sorted[0].distance)} mi <span id="clinicChevron" class="collapsible-chevron" style="display:inline-flex;vertical-align:-3px">${icon('chevron-down',14)}</span></span>
+      </div>
       <div id="clinicListBody" class="clinic-list-body">${renderClinicListRows(sorted)}</div>
-      <p style="font-size:11px;color:rgba(255,255,255,.55);margin-bottom:10px">You'll choose your clinic and appointment time in the booking flow.</p>`;
+      <p class="clinic-hint">Tap to choose a different clinic — you'll pick your clinic and appointment time in the booking flow.</p>`;
   }else{
-    el.innerHTML=`<div class="book-card-row" style="border-bottom:none"><span class="book-card-label">Our clinics</span><span class="book-card-value">Choose during booking</span></div>
+    el.innerHTML=`<div class="book-card-row" style="border-bottom:none">
+        <span class="book-card-label" style="display:inline-flex;align-items:center;gap:8px">${icon('map-pin',16,'color:var(--tmc-cyan)')} Our clinics</span>
+        <span class="book-card-value">Choose during booking</span>
+      </div>
       <div id="clinicListBody" class="clinic-list-body open">${renderClinicListRows(sorted)}</div>
-      <p style="font-size:11px;color:rgba(255,255,255,.55);margin-bottom:10px">Enable location or add a postcode to see your nearest clinic. You'll choose your clinic in the booking flow.</p>`;
+      <p class="clinic-hint">Enable location or add a postcode to see your nearest clinic. You'll choose your clinic in the booking flow.</p>`;
   }
 }
 // ===== HOMEPAGE HELPERS =====
@@ -1767,37 +1812,49 @@ function buildUVCardHtml(wd,p,hour){
     const uvR=Math.round(wd.uv);
     const band=getUVBand(uvR),spf=getPersonalisedSPF(wd.uv,p.skinType),showPeak=isPeak&&uvR>=3;
     return`<div id="hp-uv-loading" style="display:none"></div><div id="hp-uv-data">
-      <div class="uv-gauge-wrap" id="hp-uv-gauge">${renderUVGaugeSVG(wd.uv)}</div>
-      <div class="uv-value-row"><div class="uv-value" id="hp-uv-value">${uvR}</div><div class="uv-value-label">UV Index</div></div>
-      <div class="uv-level-badge" id="hp-uv-level" style="background:${band.bg};color:${band.text}">${band.level}</div>
+      <div class="uv-gauge-row">
+        <div id="hp-uv-gauge">${renderUVGaugeSVG(wd.uv)}</div>
+        <div>
+          <div class="uv-value-row"><span class="uv-value" id="hp-uv-value">${uvR}</span><span class="uv-value-label">UV index</span></div>
+          <span class="uv-level-badge" id="hp-uv-level" style="background:${band.bg};color:${band.text}">${band.level}</span>
+        </div>
+      </div>
       <div class="uv-spf-rec" id="hp-spf-msg">${buildSpfRecHtml(spf)}</div>
-      <div class="uv-peak-alert" id="hp-peak-uv" style="display:${showPeak?'block':'none'}">&#9728;&#65039; You are in the peak UV window right now (11:00–15:00)</div>
-      <div class="uv-weather-row" id="hp-weather-summary"><span style="font-size:20px">${getWeatherEmoji(wd.weatherCode)}</span><span>${Math.round(wd.temp)}°C · ${getWeatherDesc(wd.weatherCode)}</span></div>
+      <div class="uv-peak-alert" id="hp-peak-uv" style="display:${showPeak?'flex':'none'}">${icon('sun',16)} You are in the peak UV window right now (11:00–15:00)</div>
+      <div class="uv-weather-row" id="hp-weather-summary">${getWeatherEmoji(wd.weatherCode)}<span>${Math.round(wd.temp)}°C · ${getWeatherDesc(wd.weatherCode)}</span></div>
     </div>`;
   }
   if(!p.consentLocation){
     const defSPF=getDefaultSPFRec(p.skinType);
     if(p.postcode){
-      return`<div id="hp-uv-loading" class="uv-loading-state"><div class="uv-loading-spinner"></div><div style="font-size:13px;color:var(--tmc-gray-400)">Fetching UV data for your area…</div><div class="uv-spf-rec" style="margin-top:12px">${defSPF}</div></div>
+      return`<div id="hp-uv-loading" class="uv-loading-state"><div class="uv-loading-spinner"></div><div style="font-size:13px;color:var(--ink-400)">Fetching UV data for your area…</div><div class="uv-spf-rec" style="margin-top:12px">${defSPF}</div></div>
       <div id="hp-uv-data" style="display:none">
-        <div class="uv-gauge-wrap" id="hp-uv-gauge"></div>
-        <div class="uv-value-row"><div class="uv-value" id="hp-uv-value">—</div><div class="uv-value-label">UV Index</div></div>
-        <div class="uv-level-badge" id="hp-uv-level" style="display:none"></div>
+        <div class="uv-gauge-row">
+          <div id="hp-uv-gauge"></div>
+          <div>
+            <div class="uv-value-row"><span class="uv-value" id="hp-uv-value">—</span><span class="uv-value-label">UV index</span></div>
+            <span class="uv-level-badge" id="hp-uv-level" style="display:none"></span>
+          </div>
+        </div>
         <div class="uv-spf-rec" id="hp-spf-msg" style="display:none"></div>
         <div id="hp-peak-uv" class="uv-peak-alert" style="display:none"></div>
         <div id="hp-weather-summary" class="uv-weather-row" style="display:none"></div>
       </div>`;
     }
     return`<div id="hp-uv-loading" style="display:none"></div><div id="hp-uv-data"><div class="uv-unavailable">
-      <div class="uv-unavailable-icon">&#128205;</div><div style="font-size:14px;font-weight:600;color:var(--tmc-navy)">Location not enabled</div>
+      <div class="uv-unavailable-icon">${icon('map-pin',26)}</div><div style="font-size:14px;font-weight:600;color:var(--tmc-navy)">Location not enabled</div>
       <div style="margin-top:4px;font-size:12px">Enable location permission in your browser to see live UV data for your area.</div>
     </div><div class="uv-spf-rec" style="margin-top:12px">${defSPF}</div></div>`;
   }
-  return`<div id="hp-uv-loading" class="uv-loading-state"><div class="uv-loading-spinner"></div><div style="font-size:13px;color:var(--tmc-gray-400)">Fetching UV data…</div><div class="uv-spf-rec" style="margin-top:12px">${getDefaultSPFRec(p.skinType)}</div></div>
+  return`<div id="hp-uv-loading" class="uv-loading-state"><div class="uv-loading-spinner"></div><div style="font-size:13px;color:var(--ink-400)">Fetching UV data…</div><div class="uv-spf-rec" style="margin-top:12px">${getDefaultSPFRec(p.skinType)}</div></div>
   <div id="hp-uv-data" style="display:none">
-    <div class="uv-gauge-wrap" id="hp-uv-gauge"></div>
-    <div class="uv-value-row"><div class="uv-value" id="hp-uv-value">—</div><div class="uv-value-label">UV Index</div></div>
-    <div class="uv-level-badge" id="hp-uv-level" style="display:none"></div>
+    <div class="uv-gauge-row">
+      <div id="hp-uv-gauge"></div>
+      <div>
+        <div class="uv-value-row"><span class="uv-value" id="hp-uv-value">—</span><span class="uv-value-label">UV index</span></div>
+        <span class="uv-level-badge" id="hp-uv-level" style="display:none"></span>
+      </div>
+    </div>
     <div class="uv-spf-rec" id="hp-spf-msg" style="display:none"></div>
     <div id="hp-peak-uv" class="uv-peak-alert" style="display:none"></div>
     <div id="hp-weather-summary" class="uv-weather-row" style="display:none"></div>
@@ -1817,30 +1874,26 @@ function renderHomepage(){
   const fitzType=getFitzpatrickLabel(p.skinType);
   const summary=getPersonalisedSummary(p);
   const skinTone=skinTypes.find(s=>s.id===p.skinType);
-  const riskTagClass={LOW:'tag-low',MODERATE:'tag-moderate',HIGH:'tag-high','VERY HIGH':'tag-veryhigh'}[overall]||'tag-low';
   const freqClass={LOW:'freq-low',MODERATE:'freq-mod',HIGH:'freq-high','VERY HIGH':'freq-veryhigh'}[overall]||'freq-low';
   const cityDisplay=st.currentCity||p.city||'';
-  // Band-only presentation — no numeric score anywhere in the UI (feedback 1.5)
-  const aiBadge=p.skinAnalysis?.mst?`<div style="display:inline-flex;align-items:center;gap:6px;background:var(--tmc-teal-light);border:1px solid rgba(46,196,182,.3);border-radius:20px;padding:4px 12px;font-size:12px;color:var(--tmc-teal-dark);font-weight:600;margin-top:8px">&#129504; Skin tone detected by AI</div>`:'';
-  // Resolve partnerInfo from live profile first, then re-derive from registry as fallback
-  // (guards against partnerInfo being missing from an older localStorage entry)
-  const partnerInfo=p.partnerInfo||(p.cohort&&p.cohort!=='consumer'?PARTNERS[p.cohort]:null);
   return`<div class="hp-screen">
-    ${partnerInfo?`<div style="background:${partnerInfo.brandColor};color:white;text-align:center;padding:8px 20px;font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase">via ${partnerInfo.brandName}</div>`:''}
     <div class="hp-header">
-      <div class="hp-logo"><img src="https://themoleclinic.co.uk/wp-content/uploads/2025/02/MoleClinic-Ver-White2.png" alt="The Mole Clinic" style="height:60px;width:auto;display:block;"><button class="hp-reset-link" onclick="resetProfile()">Reset profile</button></div>
+      <div class="hp-brand-row">
+        <div class="hp-logo"><img src="https://themoleclinic.co.uk/wp-content/uploads/2025/02/MoleClinic-Ver-White2.png" alt="The Mole Clinic"></div>
+        <div style="display:flex;align-items:center;gap:10px">${renderPartnerLockup()}<button class="hp-reset-link" onclick="resetProfile()">Reset profile</button></div>
+      </div>
       <div class="hp-greeting">${getGreeting()}, ${p.name||'there'}</div>
       <div class="hp-meta">
-        <div class="hp-date">${formatDateLong(new Date())}${partnerInfo?` &middot; via ${partnerInfo.brandName}`:(p.campaignCode?` &middot; campaign ${p.campaignCode}`:'')}</div>
-        ${cityDisplay?`<div class="hp-location">&#128205; <span id="hp-city">${cityDisplay}</span></div>`:
-          `<div class="hp-location" id="hp-city-wrap" style="display:none">&#128205; <span id="hp-city"></span></div>`}
+        <div class="hp-date">${formatDateLong(new Date())}</div>
+        ${cityDisplay?`<div class="hp-location">${icon('map-pin',13)} <span id="hp-city">${cityDisplay}</span></div>`:
+          `<div class="hp-location" id="hp-city-wrap" style="display:none">${icon('map-pin',13)} <span id="hp-city"></span></div>`}
       </div>
     </div>
     ${st.showTravelBanner?`<div class="travel-banner animate-in" style="margin:16px 16px 0">
-      <div class="travel-banner-title">Just been away? &#9728;&#65039;</div>
+      <div class="travel-banner-title">${icon('plane',16)} Just been away?</div>
       <div class="travel-banner-body">Time to book your post-holiday skin check. Sun exposure abroad is one of the biggest risk factors for skin cancer.</div>
       <div class="travel-banner-actions">
-        <button class="travel-banner-book" onclick="openBooking('skinCheck')">Book a Skin Check &#8594;</button>
+        <button class="travel-banner-book" onclick="openBooking('skinCheck')">Book a Skin Check ${icon('chevron-right',14)}</button>
         <button class="travel-banner-dismiss" onclick="dismissTravelBanner()">Remind me later</button>
       </div></div>`:''}
     <div class="hp-content">
@@ -1848,21 +1901,24 @@ function renderHomepage(){
       <div class="uv-card">${buildUVCardHtml(wd,p,hour)}</div>
       <div style="margin-top:16px">
         <div class="collapsible-header" onclick="toggleProfile()">
-          <div class="collapsible-title">&#129505; Your Risk Profile</div>
-          <div class="collapsible-chevron ${st.profileExpanded?'open':''}" id="profileChevron">&#9660;</div>
+          <div class="collapsible-title">${icon('heart-pulse',18,'color:var(--tmc-blue)')} Your Risk Profile</div>
+          <div class="collapsible-chevron ${st.profileExpanded?'open':''}" id="profileChevron">${icon('chevron-down',16)}</div>
         </div>
         <div class="collapsible-body ${st.profileExpanded?'open':''}" id="profileCollapse">
           <div class="collapsible-inner">
             <div class="card" style="margin-bottom:12px">
               <div class="hp-gauge-wrap">${renderRiskBandIndicator(overall)}</div>
-              <div style="text-align:center;margin-top:6px"><span class="tag ${riskTagClass}" style="font-size:14px;padding:6px 18px">${overall} Risk</span></div>
-              ${p.cumulativeUVLevel?`<p style="font-size:12px;color:var(--tmc-gray-600);text-align:center;margin-top:8px">Melanoma pathway: <strong>${p.riskLevel}</strong> &middot; Lifetime (cumulative) UV: <strong>${p.cumulativeUVLevel}</strong></p>`:''}
-              <p class="band-category-note">This is a risk <em>category</em> based on your answers and established risk factors — it is not a probability of developing skin cancer.</p>
-              <p style="font-size:13px;color:var(--tmc-gray-600);line-height:1.55;margin-top:12px;padding:0 4px">${summary}</p>
+              <h2 class="band-heading" style="color:${bandFgVar(overall)}">${bandLabel(overall)}</h2>
+              <p class="band-category-note">A category from your answers and established risk factors — not a probability of developing skin cancer.</p>
+              ${p.cumulativeUVLevel?`<div class="pathway-row">
+                <div class="pathway-tile"><div class="pathway-tile-label">Melanoma</div><div class="pathway-tile-value" style="color:${bandFgVar(p.riskLevel)}">${bandLabel(p.riskLevel)}</div></div>
+                <div class="pathway-tile"><div class="pathway-tile-label">Lifetime UV</div><div class="pathway-tile-value" style="color:${bandFgVar(p.cumulativeUVLevel)}">${bandLabel(p.cumulativeUVLevel)}</div></div>
+              </div>`:''}
+              <p style="font-size:13px;color:var(--ink-500);line-height:20px;margin-top:12px">${summary}</p>
               ${cumulativeHigh?`<div class="uv-spf-rec" style="margin-top:10px">Your answers suggest a high lifetime (cumulative) UV exposure. This is the main risk factor for the commonest skin cancers (basal and squamous cell), which a Full Body Skin Check is designed to detect — not just melanoma.</div>`:''}
             </div>
             <div class="card" style="margin-bottom:12px">
-              <div class="hp-profile-row"><span class="hp-profile-label">Skin tone</span><span class="hp-profile-value">${skinTone?`<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:${skinTone.color};border:1.5px solid rgba(0,0,0,.15)"></span> Monk Tone ${p.skinType} of 10`:'-'}${p.skinAnalysis?.mst?' &#129504;':''}</span></div>
+              <div class="hp-profile-row"><span class="hp-profile-label">Skin tone</span><span class="hp-profile-value">${skinTone?`<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:${skinTone.color};border:1.5px solid rgba(0,0,0,.15)"></span> Monk Tone ${p.skinType} of 10`:'-'}${p.skinAnalysis?.mst?` ${icon('sparkles',14,'color:var(--tmc-blue)','Detected by AI')}`:''}</span></div>
               <div class="hp-profile-row" style="border-bottom:none"><span class="hp-profile-label">Age range</span><span class="hp-profile-value">${questions[0].options.find(o=>o.value===p.answers.age)?.label||'—'}</span></div>
             </div>
             <p class="label">Key risk factors</p>
@@ -1876,37 +1932,31 @@ function renderHomepage(){
       ${(()=>{
         const rec=p.serviceRecommendation||getServiceRecommendation(p.answers,p.cumulativeUVLevel);
         const isUrgent=rec.primary==='fbsc_urgent';
-        const isMoleMap=rec.primary==='mole_mapping';
-        const wrapStyle=isUrgent?'background:#00635a;color:white;':isMoleMap?'background:#1a2e2e;color:white;':'background:white;border:2px solid var(--tmc-teal);';
-        const badgeStyle=isUrgent?'background:rgba(245,158,11,.3);color:#fef3c7;':isMoleMap?'background:var(--tmc-teal);color:white;':'background:var(--tmc-teal-light);color:var(--tmc-teal-dark);';
-        const badgeText=isUrgent?'&#9888; Book soon':isMoleMap?'Personalised recommendation':'Recommended for you';
-        const titleColor=(!isUrgent&&!isMoleMap)?'color:var(--tmc-navy);':'color:white;';
-        const descColor=(!isUrgent&&!isMoleMap)?'color:var(--tmc-gray-600);':'color:rgba(255,255,255,.85);';
+        const badgeText=isUrgent?`${icon('triangle-alert',13)} Book soon`:rec.primary==='mole_mapping'?'Personalised recommendation':'Recommended for you';
         const tile1Primary=rec.primary==='fbsc'||rec.primary==='fbsc_urgent';
         const tile2Primary=rec.primary==='mole_mapping';
-        const disclaimer=(!isUrgent&&!isMoleMap)?'class="svc-disclaimer-light"':'class="svc-disclaimer"';
-        return`<div class="svc-rec-wrap" style="${wrapStyle}">
-          <div class="svc-rec-badge" style="${badgeStyle}">${badgeText}</div>
-          <div class="svc-rec-title" style="${titleColor}">${rec.title} — Recommended</div>
-          <div class="svc-rec-desc" style="${descColor}">${rec.description}</div>
+        return`<div class="svc-rec-wrap${isUrgent?' urgent':''}">
+          <div class="svc-rec-badge${isUrgent?' urgent':''}">${badgeText}</div>
+          <div class="svc-rec-title">${icon('person-standing',21,'color:var(--tmc-blue)')} ${rec.title}</div>
+          <div class="svc-rec-desc">${rec.description}</div>
           <div class="svc-tile-row">
             <div class="svc-tile${tile1Primary?' svc-tile-primary':''}">
               <div class="svc-tile-name">Full Body Skin Check</div>
               <div class="svc-tile-desc">A head-to-toe professional assessment of all skin and moles.</div>
-              <button class="svc-tile-btn" onclick="openBooking('skinCheck')">Book &#8594;</button>
+              <button class="svc-tile-btn" onclick="openBooking('skinCheck')">Book ${icon('chevron-right',13)}</button>
             </div>
             <div class="svc-tile${tile2Primary?' svc-tile-primary':''}">
               <div class="svc-tile-name">Mole Mapping</div>
               <div class="svc-tile-desc">Comprehensive digital mapping and monitoring of all moles — includes a Full Body Skin Check.</div>
-              <button class="svc-tile-btn" onclick="openBooking('moleMapping')">Book &#8594;</button>
+              <button class="svc-tile-btn" onclick="openBooking('moleMapping')">Book ${icon('chevron-right',13)}</button>
             </div>
             <div class="svc-tile">
               <div class="svc-tile-name">Single Mole Report</div>
               <div class="svc-tile-desc">A professional assessment of one specific mole.</div>
-              <button class="svc-tile-btn" onclick="openBooking('singleMole')">Book &#8594;</button>
+              <button class="svc-tile-btn" onclick="openBooking('singleMole')">Book ${icon('chevron-right',13)}</button>
             </div>
           </div>
-          <p ${disclaimer}>This tool provides guidance only and does not replace a clinical assessment.</p>
+          <p class="svc-disclaimer">This tool provides guidance only and does not replace a clinical assessment.</p>
         </div>`;
       })()}
       <div class="hp-section-label" style="margin-top:20px">Book a Check</div>
@@ -1914,25 +1964,20 @@ function renderHomepage(){
         <div class="book-card-row"><span class="book-card-label">Your last check</span><span class="book-card-value">${p.lastCheckDate||'Not recorded'}</span></div>
         <div class="book-card-row"><span class="book-card-label">TMC recommends</span><span class="book-card-value"><span class="freq-badge ${freqClass}">${checkFreq}</span></span></div>
         <div id="nearest-clinic-block"></div>
-        ${(()=>{const rec=p.serviceRecommendation||getServiceRecommendation(p.answers,p.cumulativeUVLevel);const key=bookingKeyForRec(rec);return rec.urgency==='urgent'?`<div class="urgent-notice">Based on your answers, we recommend booking as soon as possible.</div><button class="book-btn-urgent" onclick="openBooking('${key}')">Book at The Mole Clinic &#8594;</button>`:`<button class="book-btn-hp" onclick="openBooking('${key}')">Book at The Mole Clinic &#8594;</button>`;})()}
-      </div>
-      <div class="card" style="margin-top:12px;text-align:center">
-        <p style="font-size:14px;color:var(--tmc-navy);font-weight:600">Not ready to book yet?</p>
-        <p style="font-size:13px;color:var(--tmc-gray-600);margin-top:4px;line-height:1.5">That's fine — your results are saved on this device.</p>
-        <div style="display:flex;gap:10px;margin-top:12px">
-          <button class="btn-secondary" style="flex:1;padding:11px 12px;font-size:14px" onclick="emailResultsDraft()">Email me my results</button>
-          <button class="btn-ghost" style="flex:1" onclick="doneForNow()">Done for now</button>
+        ${(()=>{const rec=p.serviceRecommendation||getServiceRecommendation(p.answers,p.cumulativeUVLevel);const key=bookingKeyForRec(rec);return rec.urgency==='urgent'?`<div class="urgent-notice">Based on your answers, we recommend booking as soon as possible.</div><button class="book-btn-urgent" onclick="openBooking('${key}')">Book at The Mole Clinic ${icon('arrow-right',16)}</button>`:`<button class="book-btn-hp" onclick="openBooking('${key}')">Book at The Mole Clinic ${icon('arrow-right',16)}</button>`;})()}
+        <div class="exit-links">Not ready to book yet? That's fine — your results are saved on this device.<br>
+          <button onclick="emailResultsDraft()">${icon('mail',14)} Email me my results</button> &middot; <button onclick="doneForNow()">Done for now</button>
         </div>
       </div>
       <div style="margin-top:20px">
         <div class="collapsible-header" onclick="toggleMethodology()">
-          <div class="collapsible-title">&#128218; Methodology &amp; References</div>
-          <div class="collapsible-chevron" id="methChevron">&#9660;</div>
+          <div class="collapsible-title">${icon('book-open',17,'color:var(--ink-500)')} Methodology &amp; References</div>
+          <div class="collapsible-chevron" id="methChevron">${icon('chevron-down',16)}</div>
         </div>
         <div class="collapsible-body" id="methCollapse">
           <div class="methodology-section">
             <div class="methodology-inner">
-              <div class="ref-item"><strong>Google Monk Skin Tone Scale (MST)</strong>Ellis Monk, Harvard University / Google, 2019. 10-point scale representing the full range of human skin tones. Skin tone is classified in this app by pixel sampling from the captured arm photo, matched to official Google MST hex values by Euclidean distance in RGB space — providing objective colour measurement rather than AI visual estimation.</div>
+              <div class="ref-item"><strong>Google Monk Skin Tone Scale (MST)</strong>Ellis Monk, Harvard University / Google, 2019. 10-point scale representing the full range of human skin tones. Skin tone is classified in this app from in-ellipse pixel sampling of the captured right-forearm photo using the Individual Typology Angle (ITA, Chardon et al. 1991) in CIELAB colour space, cross-checked against an AI estimate and confirmed by the user — objective colour measurement rather than visual estimation alone.</div>
               <div class="ref-item"><strong>Gandini et al. (2005) — Meta-analysis of risk factors for cutaneous melanoma</strong>European Journal of Cancer, 41(1), 28-44. First-degree relative with melanoma: RR 2.24. Very fair skin (Fitzpatrick I–II): RR 2.09. Sunbed use, sunburn history and UV exposure weights derived from this meta-analysis. Notably, intermittent exposure raises melanoma risk (OR ≈ 1.6) while chronic/occupational exposure does not (OR ≈ 0.95) — the basis for keeping the cumulative UV dimension separate from the melanoma score.</div>
               <div class="ref-item"><strong>Tucker et al. (1997) — Mole count as independent risk factor</strong>Journal of the National Cancer Institute. 50+ moles confers RR 4.8 versus fewer than 15 moles. Strongest modifiable risk predictor after family history.</div>
               <div class="ref-item"><strong>Bataille et al. (2015) — Arm Mole Count (King's College London)</strong>British Journal of Dermatology. DOI: 10.1111/bjd.14119. Mole count on the right arm predicts total body mole burden. 7–10 arm moles = ~50+ body moles; 11+ arm moles = elevated melanoma risk indicator. Used here to map AI mole count to body mole estimate.</div>
@@ -1955,7 +2000,7 @@ function renderHomepage(){
       </div>
       <div class="hp-footer"><p>v0.4 &middot; <a href="#" onclick="openExternal('https://themoleclinic.co.uk');return false">The Mole Clinic</a></p></div>
     </div>
-    ${window.location.search.includes('dev=1')?`<div class="dev-toolbar"><button onclick="devSimulateHolidayReturn()">&#127757; Simulate holiday return</button><button onclick="devResetTravel()">&#128260; Reset travel data</button></div>`:''}
+    ${window.location.search.includes('dev=1')?`<div class="dev-toolbar"><button onclick="devSimulateHolidayReturn()">${icon('globe',13)} Simulate holiday return</button><button onclick="devResetTravel()">${icon('refresh-cw',13)} Reset travel data</button></div>`:''}
   </div>`;
 }
 // ===== TOGGLE HELPERS =====
@@ -1969,11 +2014,19 @@ function toggleMethodology(){
   const col=document.getElementById('methCollapse'),chev=document.getElementById('methChevron');
   if(col){const open=col.classList.toggle('open');if(chev)chev.classList.toggle('open',open);}
 }
-// Four-segment band indicator with the user's band highlighted (feedback 1.5)
+// Band display helpers — status ramp only (feedback 1.5; design target)
+function bandFgVar(band){
+  return{LOW:'var(--status-low-fg)',MODERATE:'var(--status-mod-fg)',HIGH:'var(--status-high-fg)','VERY HIGH':'var(--status-vhigh-fg)'}[band]||'var(--ink-700)';
+}
+function bandLabel(band){
+  return{LOW:'Low',MODERATE:'Moderate',HIGH:'High','VERY HIGH':'Very high'}[band]||band;
+}
+// Slim four-segment meter with the user's band filled, labels beneath
 function renderRiskBandIndicator(band){
   const bands=['LOW','MODERATE','HIGH','VERY HIGH'];
   const cls={LOW:'band-low',MODERATE:'band-moderate',HIGH:'band-high','VERY HIGH':'band-veryhigh'};
-  return`<div class="band-indicator">${bands.map(b=>`<div class="band-seg ${b===band?cls[b]:''}">${b}</div>`).join('')}</div>`;
+  return`<div class="band-indicator">${bands.map(b=>`<div class="band-seg ${b===band?cls[b]:''}"></div>`).join('')}</div>
+  <div class="band-labels">${bands.map(b=>`<span class="${b===band?'active':''}" ${b===band?`style="color:${bandFgVar(b)}"`:''}>${bandLabel(b)}</span>`).join('')}</div>`;
 }
 // ===== ASYNC HOMEPAGE INIT =====
 function updateWeatherUI(wd,geo){
@@ -1989,9 +2042,9 @@ function updateWeatherUI(wd,geo){
   const spfEl=document.getElementById('hp-spf-msg');
   if(spfEl){spfEl.style.display='block';spfEl.innerHTML=buildSpfRecHtml(spf);}
   const peakEl=document.getElementById('hp-peak-uv');
-  if(peakEl){peakEl.style.display=showPeak?'block':'none';if(showPeak)peakEl.innerHTML='&#9728;&#65039; You are in the peak UV window right now (11:00–15:00)';}
+  if(peakEl){peakEl.style.display=showPeak?'flex':'none';if(showPeak)peakEl.innerHTML=`${icon('sun',16)} You are in the peak UV window right now (11:00–15:00)`;}
   const wxEl=document.getElementById('hp-weather-summary');
-  if(wxEl){wxEl.style.display='flex';wxEl.innerHTML=`<span style="font-size:20px">${getWeatherEmoji(wd.weatherCode)}</span><span>${Math.round(wd.temp)}°C · ${getWeatherDesc(wd.weatherCode)}</span>`;}
+  if(wxEl){wxEl.style.display='flex';wxEl.innerHTML=`${getWeatherEmoji(wd.weatherCode)}<span>${Math.round(wd.temp)}°C · ${getWeatherDesc(wd.weatherCode)}</span>`;}
   if(geo&&geo.city){
     st.currentCity=geo.city;
     const cityEl=document.getElementById('hp-city');if(cityEl)cityEl.textContent=geo.city;
@@ -2120,12 +2173,12 @@ function doneForNow(){
 function showPostcodeUVError(p){
   const loadEl=document.getElementById('hp-uv-loading'),dataEl=document.getElementById('hp-uv-data');
   if(loadEl)loadEl.style.display='none';
-  if(dataEl){dataEl.style.display='block';dataEl.innerHTML=`<div class="uv-unavailable"><div class="uv-unavailable-icon">&#9888;&#65039;</div><div style="font-size:14px;font-weight:600;color:var(--tmc-navy)">UV data unavailable</div><div style="margin-top:4px;font-size:12px">Enable location or check postcodes.io is available.</div><button class="btn-secondary" style="margin-top:12px;font-size:13px;padding:10px" onclick="retryPostcodeUV()">Retry &#8634;</button></div><div class="uv-spf-rec" style="margin-top:12px">${getDefaultSPFRec(p.skinType)}</div>`;}
+  if(dataEl){dataEl.style.display='block';dataEl.innerHTML=`<div class="uv-unavailable"><div class="uv-unavailable-icon">${icon('triangle-alert',26)}</div><div style="font-size:14px;font-weight:600;color:var(--tmc-navy)">UV data unavailable</div><div style="margin-top:4px;font-size:12px">Enable location or check postcodes.io is available.</div><button class="btn-secondary" style="margin-top:12px;font-size:13px;padding:10px;min-height:44px" onclick="retryPostcodeUV()">${icon('refresh-cw',14)} Retry</button></div><div class="uv-spf-rec" style="margin-top:12px">${getDefaultSPFRec(p.skinType)}</div>`;}
 }
 async function retryPostcodeUV(){
   const p=st.profile;if(!p||!p.postcode)return;
   const loadEl=document.getElementById('hp-uv-loading'),dataEl=document.getElementById('hp-uv-data');
-  if(loadEl){loadEl.style.display='block';loadEl.className='uv-loading-state';loadEl.innerHTML=`<div class="uv-loading-spinner"></div><div style="font-size:13px;color:var(--tmc-gray-400)">Retrying…</div><div class="uv-spf-rec" style="margin-top:12px">${getDefaultSPFRec(p.skinType)}</div>`;}
+  if(loadEl){loadEl.style.display='block';loadEl.className='uv-loading-state';loadEl.innerHTML=`<div class="uv-loading-spinner"></div><div style="font-size:13px;color:var(--ink-400)">Retrying…</div><div class="uv-spf-rec" style="margin-top:12px">${getDefaultSPFRec(p.skinType)}</div>`;}
   if(dataEl)dataEl.style.display='none';
   const coords=await fetchCoordinatesFromPostcode(p.postcode);
   if(coords){try{const wd=await fetchWeatherAndUV(coords.lat,coords.lon);if(wd){updateWeatherUI(wd,{city:`Based on your postcode (${p.postcode.toUpperCase()})`});return;}}catch(e){}}
@@ -2251,6 +2304,9 @@ function devResetTravel(){
 }
 // ===== INIT =====
 function init(){
+  // ?partner= deep link prefills the campaign code (B2B distribution links)
+  const urlPartner=(new URLSearchParams(window.location.search).get('partner')||'').trim();
+  if(urlPartner&&validateCampaignCode(urlPartner)&&!st.campaignCode)st.campaignCode=urlPartner.toUpperCase();
   const p=getProfile();
   // v0.4 adds the cumulative UV dimension (two new questions) — older
   // profiles lack those answers, so they restart the flow

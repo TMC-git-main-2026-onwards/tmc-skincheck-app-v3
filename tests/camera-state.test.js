@@ -10,6 +10,7 @@ const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const inline = html.match(/<script>([\s\S]*?)<\/script>/)[1];
 const logicSrc = fs.readFileSync(path.join(root, 'logic.js'), 'utf8');
+const iconsSrc = fs.readFileSync(path.join(root, 'icons.js'), 'utf8');
 
 function makeEl(id) {
   return {
@@ -47,7 +48,7 @@ function makeEnv() {
   const fn = new Function(
     'window', 'document', 'localStorage', 'navigator',
     'requestAnimationFrame', 'cancelAnimationFrame', 'fetch', 'Image', 'confirm', 'alert',
-    logicSrc + '\n' + inline +
+    logicSrc + '\n' + iconsSrc + '\n' + inline +
     '\nreturn {showCameraState,retakePhoto,startCamera,handleAnalysisResult,showManualToneSelect,showToneRetakePrompt,st};'
   );
   const api = fn(
