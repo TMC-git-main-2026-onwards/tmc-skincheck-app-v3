@@ -317,10 +317,17 @@ input:checked+.toggle-slider:before{transform:translateX(24px)}
  * Codes that match a known partner additionally apply co-branding:
  *   NORTHWIND / NORTH2026 / NWT-STAFF      -> Northwind Travel (blue)
  *   MERIDIAN / MERIDIAN2026 / MHI-MEMBER   -> Meridian Health (purple)
- * (The previous strict email-domain + invite-code gate was removed per
- * feedback 1.13 — partner `domains` are retained in the registry for a
- * future co-branding phase only.)
+ *
+ * PARTNER_GATE_MODE (demo flag, default false):
+ * Production stays additive/never-gated per feedback 1.13. Setting the
+ * flag to true restores the strict partner demo: email domain AND
+ * campaign/invite code must match the SAME partner — neither alone is
+ * sufficient — with error messages for mismatched access attempts:
+ *   Personal email + partner code -> "use your work email with this code"
+ *   Company email  + no code      -> "please also enter your invite code"
+ * See docs/b2b-roadmap.md for how to enable it.
  */
+const PARTNER_GATE_MODE = false;
 // ===== DATA =====
 // Monk Skin Tone Scale (Ellis et al., Google / Harvard 2019) — 10 official tones
 // fitzpatrickId maps each MST tone to nearest Fitzpatrick type for internal scoring only
@@ -454,7 +461,7 @@ const validateCampaignCode = (code) => {
   return !c || /^[A-Za-z0-9][A-Za-z0-9 _-]{0,31}$/.test(c);
 };
 // A campaign code that matches a known partner applies co-branding.
-// Unknown codes are still accepted — the code is never a gate.
+// Unknown codes are still accepted — the code is never a gate (default mode).
 const detectPartnerFromCode = (code) => {
   const c = (code || '').trim().toUpperCase();
   if (!c) return null;
@@ -462,6 +469,40 @@ const detectPartnerFromCode = (code) => {
     if (partner.inviteCodes.some(ic => ic.toUpperCase() === c)) return key;
   }
   return null;
+};
+/*
+ * detectCohortStrict — used ONLY when PARTNER_GATE_MODE is true.
+ * Both email domain AND campaign/invite code must match the SAME partner.
+ * Neither alone is sufficient.
+ * Returns: { cohort, valid, errorType?, error? }
+ */
+const detectCohortStrict = (email, code) => {
+  const c = (code || '').trim().toUpperCase();
+  const domain = (((email || '').split('@')[1]) || '').toLowerCase().trim();
+
+  const codePartnerKey = detectPartnerFromCode(c);
+
+  let domainPartnerKey = null;
+  for (const [key, partner] of Object.entries(PARTNERS)) {
+    if (domain && partner.domains.includes(domain)) { domainPartnerKey = key; break; }
+  }
+
+  if (codePartnerKey && domainPartnerKey && codePartnerKey === domainPartnerKey)
+    return { cohort: codePartnerKey, valid: true };
+
+  if (codePartnerKey && !domainPartnerKey)
+    return { cohort: null, valid: false, errorType: 'code_without_domain',
+      error: 'Please use your work or company email address with this invite code.' };
+
+  if (domainPartnerKey && !codePartnerKey)
+    return { cohort: null, valid: false, errorType: 'domain_without_code',
+      error: "It looks like you're using a company email address. Please also enter your invite code to continue." };
+
+  if (codePartnerKey && domainPartnerKey && codePartnerKey !== domainPartnerKey)
+    return { cohort: null, valid: false, errorType: 'mismatch',
+      error: 'Please use your work or company email address with this invite code.' };
+
+  return { cohort: 'consumer', valid: true };
 };
 const showDetailsError = (message) => {
   const existing = document.getElementById('cohortError');
@@ -1746,7 +1787,7 @@ function renderHomepage(){
       <div class="travel-banner-title">Just been away? &#9728;&#65039;</div>
       <div class="travel-banner-body">Time to book your post-holiday skin check. Sun exposure abroad is one of the biggest risk factors for skin cancer.</div>
       <div class="travel-banner-actions">
-        <button class="travel-banner-book" onclick="openBooking('skinCheck')">Book a Mole Check &#8594;</button>
+        <button class="travel-banner-book" onclick="openBooking('skinCheck')">Book a Skin Check &#8594;</button>
         <button class="travel-banner-dismiss" onclick="dismissTravelBanner()">Remind me later</button>
       </div></div>`:''}
     <div class="hp-content">
@@ -1949,7 +1990,11 @@ function buildProfile(){
   // can aggregate de-identified outcomes per employer/event. There is NO
   // server-side reporting in this version — results stay on the device.
   const campaignCode=(st.campaignCode||'').trim().toUpperCase();
-  const cohort=detectPartnerFromCode(campaignCode)||'consumer';
+  // Gate mode: cohort requires domain+code to agree (invalid combos can't
+  // pass the email screen). Default mode: code alone applies co-branding.
+  const cohort=PARTNER_GATE_MODE
+    ?(detectCohortStrict(st.email,campaignCode).cohort||'consumer')
+    :(detectPartnerFromCode(campaignCode)||'consumer');
   const partnerInfo=(cohort!=='consumer'&&PARTNERS[cohort])?PARTNERS[cohort]:null;
   return{
     version:'0.4',name:st.name,email:st.email,postcode:st.postcode,
@@ -2074,6 +2119,10 @@ function bindEvents(){
     nameIn.addEventListener('input',chk);emailIn.addEventListener('input',chk);postIn.addEventListener('input',chk);if(campaignIn)campaignIn.addEventListener('input',chk);
     emailNext.addEventListener('click',()=>{
       if(!validateCampaignCode(st.campaignCode)){showDetailsError('Campaign codes can only contain letters, numbers, spaces and hyphens (up to 32 characters). Check your code or leave it blank.');return;}
+      if(PARTNER_GATE_MODE){
+        const result=detectCohortStrict(st.email,st.campaignCode||'');
+        if(!result.valid){showDetailsError(result.error);return;}
+      }
       navigate('consent');
     });
     chk();

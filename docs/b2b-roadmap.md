@@ -14,9 +14,15 @@ cumulative-UV dimension (brief §1.11) was built for.
 - **Partner co-branding**: a code matching a known partner in the `PARTNERS`
   registry applies a branded banner (demo partners: Northwind Travel,
   Meridian Health). Unknown codes are accepted and shown as
-  "campaign {CODE}" without branding. The previous strict email-domain +
-  invite-code gate was removed (brief §1.13); partner `domains` are retained
-  in the registry for a future co-branding phase only.
+  "campaign {CODE}" without branding.
+- **`PARTNER_GATE_MODE` demo flag** (const in `index.html`, default `false`):
+  production stays additive/never-gated per brief §1.13. Set it to `true` to
+  restore the strict partner demo — email domain AND invite code must match
+  the same partner (`detectCohortStrict`), with error messages for personal
+  email + partner code, company email without a code, and mismatched
+  partners. Used for demonstrating access-controlled partner deployments
+  (Northwind/Meridian); the partner `domains` in the registry exist for this
+  mode and future co-branding.
 - **Occupational-health framing**: when a code is present, the questionnaire
   intro acknowledges the workplace context, and the consent screen states
   that results stay on the device and are not shared with the employer.
