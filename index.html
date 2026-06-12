@@ -304,28 +304,22 @@ input:checked+.toggle-slider:before{transform:translateX(24px)}
 <script src="logic.js"></script>
 <script>
 /*
- * DEMO NOTES — Partner cohort testing
- * =====================================
- * STRICT VALIDATION: Both email domain AND invite code must match the same partner.
- * Neither alone is sufficient.
+ * CAMPAIGN CODES — B2B / occupational-health deployment (feedback 1.13)
+ * =====================================================================
+ * The campaign code is ADDITIVE, never a gate. Any alphanumeric code is
+ * accepted, stored as profile.campaignCode and stamped on the saved
+ * result and emailed summary so a future phase can aggregate
+ * de-identified outcomes per employer/event. No code -> exact consumer
+ * flow. Results never leave the device in this version; if aggregate
+ * employer reporting is added later, the lawful basis and privacy
+ * wording must be revisited against the TMC Privacy Policy.
  *
- * NORTHWIND TRAVEL (corporate demo):
- *   Email:       anyone@northwindtravel.co.uk
- *   Invite code: NORTHWIND  (also: NORTH2026, NWT-STAFF)
- *   Result:      Blue banner · "via Northwind Travel"
- *
- * MERIDIAN HEALTH (insurer demo):
- *   Email:       anyone@meridianhealth.co.uk
- *   Invite code: MERIDIAN  (also: MERIDIAN2026, MHI-MEMBER)
- *   Result:      Purple banner · "via Meridian Health"
- *
- * CONSUMER (standard flow):
- *   Email:       any personal email — leave invite code blank
- *   Result:      No partner branding
- *
- * BLOCKED SCENARIOS (demo these to show access control):
- *   Personal email + partner code  → "Please use your work email with this invite code."
- *   Company email  + no code       → "It looks like you're using a company email address. Please also enter your invite code."
+ * Codes that match a known partner additionally apply co-branding:
+ *   NORTHWIND / NORTH2026 / NWT-STAFF      -> Northwind Travel (blue)
+ *   MERIDIAN / MERIDIAN2026 / MHI-MEMBER   -> Meridian Health (purple)
+ * (The previous strict email-domain + invite-code gate was removed per
+ * feedback 1.13 — partner `domains` are retained in the registry for a
+ * future co-branding phase only.)
  */
 // ===== DATA =====
 // Monk Skin Tone Scale (Ellis et al., Google / Harvard 2019) — 10 official tones
@@ -453,48 +447,27 @@ const PARTNERS = {
     inviteCodes: ['MERIDIAN2026','MHI-MEMBER','MERIDIAN']
   }
 };
-/*
- * detectCohort — STRICT mode.
- * Both email domain AND invite code must match the SAME partner.
- * Neither alone is sufficient.
- * Returns: { cohort, valid, errorType?, error? }
- */
-const detectCohort = (email, inviteCode) => {
-  const code = (inviteCode || '').trim().toUpperCase();
-  const domain = (((email || '').split('@')[1]) || '').toLowerCase().trim();
-
-  let codePartnerKey = null;
+// Loose validation only (feedback 1.13): letters, digits, spaces, hyphens,
+// underscores, up to 32 chars. An empty code is always fine.
+const validateCampaignCode = (code) => {
+  const c = (code || '').trim();
+  return !c || /^[A-Za-z0-9][A-Za-z0-9 _-]{0,31}$/.test(c);
+};
+// A campaign code that matches a known partner applies co-branding.
+// Unknown codes are still accepted — the code is never a gate.
+const detectPartnerFromCode = (code) => {
+  const c = (code || '').trim().toUpperCase();
+  if (!c) return null;
   for (const [key, partner] of Object.entries(PARTNERS)) {
-    if (code && partner.inviteCodes.some(c => c.toUpperCase() === code)) { codePartnerKey = key; break; }
+    if (partner.inviteCodes.some(ic => ic.toUpperCase() === c)) return key;
   }
-
-  let domainPartnerKey = null;
-  for (const [key, partner] of Object.entries(PARTNERS)) {
-    if (domain && partner.domains.includes(domain)) { domainPartnerKey = key; break; }
-  }
-
-  if (codePartnerKey && domainPartnerKey && codePartnerKey === domainPartnerKey)
-    return { cohort: codePartnerKey, valid: true };
-
-  if (codePartnerKey && !domainPartnerKey)
-    return { cohort: null, valid: false, errorType: 'code_without_domain',
-      error: 'Please use your work or company email address with this invite code.' };
-
-  if (domainPartnerKey && !codePartnerKey)
-    return { cohort: null, valid: false, errorType: 'domain_without_code',
-      error: "It looks like you're using a company email address. Please also enter your invite code to continue." };
-
-  if (codePartnerKey && domainPartnerKey && codePartnerKey !== domainPartnerKey)
-    return { cohort: null, valid: false, errorType: 'mismatch',
-      error: 'Please use your work or company email address with this invite code.' };
-
-  return { cohort: 'consumer', valid: true };
+  return null;
 };
 const showDetailsError = (message) => {
   const existing = document.getElementById('cohortError');
   if (existing) existing.remove();
-  const inviteInput = document.getElementById('inviteInput');
-  const container = inviteInput ? inviteInput.closest('.input-group') : null;
+  const campaignInput = document.getElementById('campaignInput');
+  const container = campaignInput ? campaignInput.closest('.input-group') : null;
   const errorEl = document.createElement('div');
   errorEl.id = 'cohortError';
   errorEl.style.cssText = 'background:#FEF2F2;border:1px solid #FECACA;border-radius:10px;padding:12px 16px;margin-top:8px;display:flex;align-items:flex-start;gap:10px;';
@@ -701,7 +674,7 @@ const st={
   consentLocation:false,consentTravel:false,lat:null,lon:null,city:'',country:'',country_code:'',
   riskScore:null,riskLevel:null,
   cumulativeUVScore:null,cumulativeUVLevel:null,overallRiskLevel:null,
-  inviteCode:'',
+  campaignCode:'',
   profile:null,weatherData:null,currentCity:'',showTravelBanner:false,profileExpanded:true,
 };
 window.activeCameraStream=null;
@@ -1349,7 +1322,7 @@ function renderEmail(){
         <div class="input-group"><label class="input-label">First name</label><input class="input-field" type="text" id="nameInput" placeholder="Your first name" value="${st.name}" autocomplete="given-name"></div>
         <div class="input-group"><label class="input-label">Email address</label><input class="input-field" type="email" id="emailInput" placeholder="your@email.com" value="${st.email}" autocomplete="email"></div>
         <div class="input-group"><label class="input-label">Postcode</label><input class="input-field" type="text" id="postcodeInput" placeholder="e.g. M1 2AB" value="${st.postcode}" maxlength="8" style="text-transform:uppercase" autocomplete="postal-code"></div>
-        <div class="input-group"><label class="input-label" style="font-weight:500;color:var(--tmc-gray-600)">Partner or invite code <span style="font-weight:400;font-size:12px;color:var(--tmc-gray-400)">(optional)</span></label><input class="input-field" type="text" id="inviteInput" placeholder="e.g. NORTH2026" value="${st.inviteCode||''}" autocomplete="off" style="text-transform:uppercase"></div>
+        <div class="input-group"><label class="input-label" style="font-weight:500;color:var(--tmc-gray-600)">Campaign code <span style="font-weight:400;font-size:12px;color:var(--tmc-gray-400)">(optional)</span></label><input class="input-field" type="text" id="campaignInput" placeholder="e.g. NORTH2026" value="${st.campaignCode||''}" autocomplete="off" style="text-transform:uppercase"><p style="font-size:12px;color:var(--tmc-gray-400);margin-top:4px">Have a campaign code from your employer or event? Enter it here — otherwise leave blank.</p></div>
         <p style="font-size:12px;color:var(--tmc-gray-600);margin-top:4px">Your data is processed in accordance with GDPR. We'll never sell your details.</p>
       </div>
     </div>
@@ -1377,6 +1350,7 @@ function renderConsent(){
           </div>
         </div>
       </div>
+      ${st.campaignCode?`<div class="consent-info-box" style="margin-top:12px"><strong>Campaign code entered:</strong> your results stay on this device and are not shared with your employer or event organiser in this version of the app.</div>`:''}
       <div class="disclaimer">Your photos and analysis data are processed locally and securely. No images are stored on our servers.</div>
     </div>
     <div class="bottom-action"><button class="btn-primary" id="consentNext" ${!st.consentData?'disabled':''}>Continue &#8594;</button></div>
@@ -1425,6 +1399,7 @@ function renderQIntro(){
     <div class="q-intro-screen animate-in">
       <h2 class="title-lg" style="color:white;margin-bottom:20px">About your skin risk profile</h2>
       <div style="font-size:15px;color:rgba(255,255,255,.85);line-height:1.75">
+        ${st.campaignCode?`<p style="margin-bottom:16px">As part of your workplace skin-health check, the questions about outdoor work and lifetime sun exposure are especially relevant — please answer for your whole working life, not just your current role.</p>`:''}
         <p style="margin-bottom:16px">Skin cancer can affect people of all skin types and does not always arise from moles. Some skin cancers are related to moles and changes over time. Others — particularly non-melanoma skin cancers such as basal cell carcinoma (BCC) and squamous cell carcinoma (SCC) — are related to cumulative sun exposure and sun-damaged skin.</p>
         <p>These questions help us understand different types of skin cancer risk and recommend the most appropriate professional skin check for you.</p>
       </div>
@@ -1762,7 +1737,7 @@ function renderHomepage(){
       <div class="hp-logo"><img src="https://themoleclinic.co.uk/wp-content/uploads/2025/02/MoleClinic-Ver-White2.png" alt="The Mole Clinic" style="height:60px;width:auto;display:block;"><button class="hp-reset-link" onclick="resetProfile()">Reset profile</button></div>
       <div class="hp-greeting">${getGreeting()}, ${p.name||'there'}</div>
       <div class="hp-meta">
-        <div class="hp-date">${formatDateLong(new Date())}${partnerInfo?` &middot; via ${partnerInfo.brandName}`:''}</div>
+        <div class="hp-date">${formatDateLong(new Date())}${partnerInfo?` &middot; via ${partnerInfo.brandName}`:(p.campaignCode?` &middot; campaign ${p.campaignCode}`:'')}</div>
         ${cityDisplay?`<div class="hp-location">&#128205; <span id="hp-city">${cityDisplay}</span></div>`:
           `<div class="hp-location" id="hp-city-wrap" style="display:none">&#128205; <span id="hp-city"></span></div>`}
       </div>
@@ -1969,12 +1944,16 @@ async function initHomepageAsync(){
 // ===== PROFILE MANAGEMENT =====
 function buildProfile(){
   const serviceRecommendation=getServiceRecommendation(st.answers,st.cumulativeUVLevel);
-  const cohortResult=detectCohort(st.email,st.inviteCode||'');
-  const cohort=cohortResult.cohort||'consumer';
+  // campaignCode (feedback 1.13): optional B2B campaign/organisation tag,
+  // stamped on the saved result and the emailed summary so a future phase
+  // can aggregate de-identified outcomes per employer/event. There is NO
+  // server-side reporting in this version — results stay on the device.
+  const campaignCode=(st.campaignCode||'').trim().toUpperCase();
+  const cohort=detectPartnerFromCode(campaignCode)||'consumer';
   const partnerInfo=(cohort!=='consumer'&&PARTNERS[cohort])?PARTNERS[cohort]:null;
   return{
     version:'0.4',name:st.name,email:st.email,postcode:st.postcode,
-    inviteCode:st.inviteCode||'',cohort,partnerInfo,
+    campaignCode,cohort,partnerInfo,
     consentData:st.consentData,consentMarketing:st.consentMarketing,
     consentLocation:st.consentLocation,consentTravel:st.consentTravel,
     skinType:st.skinType,skinAnalysis:st.skinAnalysis||null,
@@ -2083,18 +2062,18 @@ function render(){
 }
 // ===== EVENT BINDING =====
 function bindEvents(){
-  // Email screen
-  const nameIn=document.getElementById('nameInput'),emailIn=document.getElementById('emailInput'),postIn=document.getElementById('postcodeInput'),inviteIn=document.getElementById('inviteInput'),emailNext=document.getElementById('emailNext');
+  // Email screen — the campaign code is additive and never gates the flow
+  // (feedback 1.13); only nonsense characters are rejected
+  const nameIn=document.getElementById('nameInput'),emailIn=document.getElementById('emailInput'),postIn=document.getElementById('postcodeInput'),campaignIn=document.getElementById('campaignInput'),emailNext=document.getElementById('emailNext');
   if(nameIn&&emailIn&&postIn&&emailNext){
     const chk=()=>{
-      st.name=nameIn.value.trim();st.email=emailIn.value.trim();st.postcode=postIn.value.trim();st.inviteCode=inviteIn?inviteIn.value.trim():'';
+      st.name=nameIn.value.trim();st.email=emailIn.value.trim();st.postcode=postIn.value.trim();st.campaignCode=campaignIn?campaignIn.value.trim():'';
       emailNext.disabled=!(st.name&&st.email.includes('@')&&st.email.includes('.')&&st.postcode.length>=2);
       const existing=document.getElementById('cohortError');if(existing)existing.remove();
     };
-    nameIn.addEventListener('input',chk);emailIn.addEventListener('input',chk);postIn.addEventListener('input',chk);if(inviteIn)inviteIn.addEventListener('input',chk);
+    nameIn.addEventListener('input',chk);emailIn.addEventListener('input',chk);postIn.addEventListener('input',chk);if(campaignIn)campaignIn.addEventListener('input',chk);
     emailNext.addEventListener('click',()=>{
-      const result=detectCohort(st.email,st.inviteCode||'');
-      if(!result.valid){showDetailsError(result.error);return;}
+      if(!validateCampaignCode(st.campaignCode)){showDetailsError('Campaign codes can only contain letters, numbers, spaces and hyphens (up to 32 characters). Check your code or leave it blank.');return;}
       navigate('consent');
     });
     chk();
