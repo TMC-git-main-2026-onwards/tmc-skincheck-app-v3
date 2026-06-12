@@ -5,19 +5,50 @@
  * app script; also requirable from Node via the module.exports guard.
  * No DOM, no state, no network — pure functions and data only.
  */
+// Currently open TMC clinics. Clinic choice happens INSIDE the booking flow —
+// these entries are for nearest-clinic display only, so no per-clinic bookUrl.
 const clinics=[
-  {name:'London Marylebone',postcodes:['W1','NW','WC'],bookUrl:'https://www.themoleclinic.co.uk/book'},
-  {name:'London City',postcodes:['EC','E1','E2'],bookUrl:'https://www.themoleclinic.co.uk/book'},
-  {name:'London Chelsea',postcodes:['SW','KT','TW'],bookUrl:'https://www.themoleclinic.co.uk/book'},
-  {name:'London Canary Wharf',postcodes:['E14','E'],bookUrl:'https://www.themoleclinic.co.uk/book'},
-  {name:'Manchester',postcodes:['M','WA','SK','OL','BL','WN'],bookUrl:'https://www.themoleclinic.co.uk/book'},
-  {name:'Leeds',postcodes:['LS','BD','HG','WF','HX','HD'],bookUrl:'https://www.themoleclinic.co.uk/book'},
-  {name:'Bristol',postcodes:['BS','BA','GL','SN'],bookUrl:'https://www.themoleclinic.co.uk/book'},
-  {name:'Birmingham',postcodes:['B','WS','DY','WV','CV'],bookUrl:'https://www.themoleclinic.co.uk/book'},
+  {name:'London Bridge',  address:'9 St Thomas St, London SE1 9RS',                    lat:51.5050, lon:-0.0889},
+  {name:'Oxford Circus',  address:'10 Argyll Street, London W1F 7TG',                  lat:51.5152, lon:-0.1412},
+  {name:'Harley Street',  address:'46 Harley Street, London W1G 9PT',                  lat:51.5187, lon:-0.1475},
+  {name:'Moorgate',       address:'7 Moorgate, London EC2R 6AF',                       lat:51.5152, lon:-0.0922},
+  {name:'Richmond',       address:'11-13 Sheen Road, Richmond TW9 1AD',                lat:51.4615, lon:-0.3041},
+  {name:'Birmingham',     address:'30A Harborne Road, Edgbaston, Birmingham B15 3AA',  lat:52.4707, lon:-1.9247},
+  {name:'Bristol',        address:'7 Queen Square, Bristol BS1 4JE',                   lat:51.4504, lon:-2.5969},
+  {name:'Manchester',     address:'7 St James Square, Manchester M2 6DN',              lat:53.4803, lon:-2.2469},
+  {name:'Wilmslow',       address:'4-6 Church Street, Wilmslow SK9 1AU',               lat:53.3280, lon:-2.2328},
+  {name:'Exeter',         address:'34 Denmark Road, Exeter EX1 1SE',                   lat:50.7220, lon:-3.5231},
+  {name:'Edinburgh',      address:'32 Alva St, Edinburgh EH2 4PY',                     lat:55.9500, lon:-3.2112},
+  {name:'Glasgow',        address:'132 W Regent St, Glasgow G2 2RQ',                   lat:55.8636, lon:-4.2605},
 ];
-function getNearestClinics(postcode){
-  const pc=(postcode||'').toUpperCase().replace(/\s/g,'');
-  return clinics.map(c=>({...c,score:c.postcodes.reduce((best,p)=>pc.startsWith(p)?Math.max(best,p.length):best,0)})).sort((a,b)=>b.score-a.score);
+// Opening mid/late 2026 — move into `clinics` (with lat/lon checked) to enable:
+// const upcomingClinics=[
+//   {name:'Cheltenham'},{name:'Leeds'},{name:'Liverpool'},
+//   {name:'Bournemouth'},{name:'Guildford'},{name:'Cardiff'},
+// ];
+// Service-specific booking pages — the patient picks their clinic inside the
+// booking flow. NEVER link to the bare themoleclinic.co.uk/book URL: it
+// 301-redirects to the Birmingham booking page regardless of location.
+const BOOK_URLS={
+  skinCheck:'https://themoleclinic.co.uk/book-skin-check/',
+  moleMapping:'https://themoleclinic.co.uk/book-mapping/',
+  singleMole:'https://themoleclinic.co.uk/book-single-mole-check/',
+};
+// Great-circle distance in miles
+function haversineMiles(lat1,lon1,lat2,lon2){
+  const R=3958.8,d2r=Math.PI/180;
+  const dLat=(lat2-lat1)*d2r,dLon=(lon2-lon1)*d2r;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*d2r)*Math.cos(lat2*d2r)*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(a));
+}
+// All clinics sorted by distance from (lat,lon); no/invalid coords → original
+// order with no distances (caller shows the full clinic picker instead)
+function getClinicsByDistance(lat,lon){
+  if(typeof lat!=='number'||typeof lon!=='number'||!isFinite(lat)||!isFinite(lon))
+    return clinics.map(c=>({...c,distance:null}));
+  return clinics
+    .map(c=>({...c,distance:haversineMiles(lat,lon,c.lat,c.lon)}))
+    .sort((a,b)=>a.distance-b.distance);
 }
 // ===== UV & SPF LOGIC =====
 // EADO (European Association of Dermato-Oncology) UV Protection Scale
@@ -239,7 +270,8 @@ const getServiceRecommendation = (answers) => {
 // Node export for unit tests (no-op in the browser)
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    clinics, getNearestClinics, getUVBand, getPersonalisedSPF,
+    clinics, BOOK_URLS, haversineMiles, getClinicsByDistance,
+    getUVBand, getPersonalisedSPF,
     calculateRiskScore, getRiskLevel, getCheckFrequency, getServiceRecommendation,
   };
 }

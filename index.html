@@ -282,6 +282,14 @@ input:checked+.toggle-slider:before{transform:translateX(24px)}
 .book-btn-urgent:hover{background:#d97706}
 .urgent-notice{background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.5);border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;color:#92400e;font-weight:500;margin-bottom:12px}
 .q-intro-screen{background:var(--tmc-navy);flex:1;padding:32px 24px 100px}
+.clinic-expander-toggle{background:none;border:none;color:rgba(255,255,255,.75);font-family:var(--font-body);font-size:13px;font-weight:600;cursor:pointer;padding:8px 0;text-decoration:underline}
+.clinic-list-body{display:none;margin:4px 0 10px;max-height:260px;overflow-y:auto}
+.clinic-list-body.open{display:block}
+.clinic-list-row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.1);font-size:13px}
+.clinic-list-row:last-child{border-bottom:none}
+.clinic-list-name{color:white;font-weight:600}
+.clinic-list-addr{color:rgba(255,255,255,.6);font-size:11px;margin-top:2px;line-height:1.4}
+.clinic-list-dist{color:var(--tmc-gold);font-weight:600;white-space:nowrap;flex-shrink:0}
 </style>
 </head>
 <body>
@@ -693,7 +701,7 @@ function getProgressLabel(){
   };
   return labels[st.screen]||'';
 }
-function renderFooter(){return`<div class="screen-footer">Powered by <a href="https://themoleclinic.co.uk" target="_blank">The Mole Clinic</a></div>`;}
+function renderFooter(){return`<div class="screen-footer">Powered by <a href="#" onclick="openExternal('https://themoleclinic.co.uk');return false">The Mole Clinic</a></div>`;}
 function renderHeader(showBack=true){
   if(st.screen==='welcome'||st.screen==='homepage')return'';
   const micro=['questionnaire','arm_camera','abcde'].includes(st.screen);
@@ -1368,6 +1376,46 @@ function renderLoading(){
     ${renderFooter()}
   </div>`;
 }
+// ===== BOOKING & NEAREST CLINIC =====
+// All booking goes to the service-specific pages in BOOK_URLS (logic.js) —
+// the patient picks their clinic inside the booking flow.
+function openBooking(serviceKey){window.open(BOOK_URLS[serviceKey]||BOOK_URLS.skinCheck,'_blank');}
+function openExternal(url){window.open(url,'_blank');}
+function bookingKeyForRec(rec){return rec&&rec.primary==='mole_mapping'?'moleMapping':'skinCheck';}
+function formatMiles(d){return d<10?d.toFixed(1):Math.round(d).toString();}
+function renderClinicListRows(list){
+  return list.map(c=>`<div class="clinic-list-row">
+    <div><div class="clinic-list-name">${c.name}</div><div class="clinic-list-addr">${c.address}</div></div>
+    ${c.distance!=null?`<div class="clinic-list-dist">${formatMiles(c.distance)} miles</div>`:''}
+  </div>`).join('');
+}
+function toggleClinicList(){
+  const el=document.getElementById('clinicListBody'),ch=document.getElementById('clinicChevron');
+  if(el){const open=el.classList.toggle('open');if(ch)ch.textContent=open?'▲':'▼';}
+}
+// Coordinate priority: live geolocation from the profile → postcode lookup →
+// no location (full clinic picker, expanded — never guess a clinic)
+async function initNearestClinicAsync(){
+  const p=st.profile;if(!p)return;
+  const el=document.getElementById('nearest-clinic-block');if(!el)return;
+  let lat=p.lat,lon=p.lon;
+  if(!(typeof lat==='number'&&typeof lon==='number')&&p.postcode){
+    const coords=await fetchCoordinatesFromPostcode(p.postcode);
+    if(coords){lat=coords.lat;lon=coords.lon;}
+  }
+  const sorted=getClinicsByDistance(lat,lon);
+  const hasDist=sorted[0]&&sorted[0].distance!=null;
+  if(hasDist){
+    el.innerHTML=`<div class="book-card-row" style="border-bottom:none"><span class="book-card-label">Your nearest clinic</span><span class="book-card-value">${sorted[0].name} (${formatMiles(sorted[0].distance)} miles)</span></div>
+      <button class="clinic-expander-toggle" onclick="toggleClinicList()">Choose a different clinic <span id="clinicChevron">▼</span></button>
+      <div id="clinicListBody" class="clinic-list-body">${renderClinicListRows(sorted)}</div>
+      <p style="font-size:11px;color:rgba(255,255,255,.55);margin-bottom:10px">You'll choose your clinic and appointment time in the booking flow.</p>`;
+  }else{
+    el.innerHTML=`<div class="book-card-row" style="border-bottom:none"><span class="book-card-label">Our clinics</span><span class="book-card-value">Choose during booking</span></div>
+      <div id="clinicListBody" class="clinic-list-body open">${renderClinicListRows(sorted)}</div>
+      <p style="font-size:11px;color:rgba(255,255,255,.55);margin-bottom:10px">Enable location or add a postcode to see your nearest clinic. You'll choose your clinic in the booking flow.</p>`;
+  }
+}
 // ===== HOMEPAGE HELPERS =====
 function getDefaultSPFRec(monkTone){
   if(monkTone<=3)return'We recommend <strong>SPF 50+</strong> as your daily minimum given your skin type.';
@@ -1458,7 +1506,7 @@ function renderHomepage(){
       <div class="travel-banner-title">Just been away? &#9728;&#65039;</div>
       <div class="travel-banner-body">Time to book your post-holiday skin check. Sun exposure abroad is one of the biggest risk factors for skin cancer.</div>
       <div class="travel-banner-actions">
-        <button class="travel-banner-book" onclick="window.open('https://www.themoleclinic.co.uk/book','_blank')">Book a Mole Check &#8594;</button>
+        <button class="travel-banner-book" onclick="openBooking('skinCheck')">Book a Mole Check &#8594;</button>
         <button class="travel-banner-dismiss" onclick="dismissTravelBanner()">Remind me later</button>
       </div></div>`:''}
     <div class="hp-content">
@@ -1509,17 +1557,17 @@ function renderHomepage(){
             <div class="svc-tile${tile1Primary?' svc-tile-primary':''}">
               <div class="svc-tile-name">Full Body Skin Check</div>
               <div class="svc-tile-desc">A head-to-toe professional assessment of all skin and moles.</div>
-              <button class="svc-tile-btn" onclick="window.open('https://www.themoleclinic.co.uk/book','_blank')">Book &#8594;</button>
+              <button class="svc-tile-btn" onclick="openBooking('skinCheck')">Book &#8594;</button>
             </div>
             <div class="svc-tile${tile2Primary?' svc-tile-primary':''}">
               <div class="svc-tile-name">Mole Mapping</div>
               <div class="svc-tile-desc">Comprehensive digital mapping and monitoring of all moles.</div>
-              <button class="svc-tile-btn" onclick="window.open('https://www.themoleclinic.co.uk/book','_blank')">Book &#8594;</button>
+              <button class="svc-tile-btn" onclick="openBooking('moleMapping')">Book &#8594;</button>
             </div>
             <div class="svc-tile">
               <div class="svc-tile-name">Single Mole Report</div>
               <div class="svc-tile-desc">A professional assessment of one specific mole.</div>
-              <button class="svc-tile-btn" onclick="window.open('https://www.themoleclinic.co.uk/book','_blank')">Book &#8594;</button>
+              <button class="svc-tile-btn" onclick="openBooking('singleMole')">Book &#8594;</button>
             </div>
           </div>
           <p ${disclaimer}>All services are provided by qualified dermatologists and skin cancer specialists. This tool provides guidance only and does not replace a clinical assessment.</p>
@@ -1529,7 +1577,8 @@ function renderHomepage(){
       <div class="book-card">
         <div class="book-card-row"><span class="book-card-label">Your last check</span><span class="book-card-value">${p.lastCheckDate||'Not recorded'}</span></div>
         <div class="book-card-row"><span class="book-card-label">TMC recommends</span><span class="book-card-value"><span class="freq-badge ${freqClass}">${checkFreq}</span></span></div>
-        ${(()=>{const rec=p.serviceRecommendation||getServiceRecommendation(p.answers);return rec.urgency==='urgent'?`<div class="urgent-notice">Based on your answers, we recommend booking as soon as possible.</div><button class="book-btn-urgent" onclick="window.open('https://www.themoleclinic.co.uk/book','_blank')">Book at The Mole Clinic &#8594;</button>`:`<button class="book-btn-hp" onclick="window.open('https://www.themoleclinic.co.uk/book','_blank')">Book at The Mole Clinic &#8594;</button>`;})()}
+        <div id="nearest-clinic-block"></div>
+        ${(()=>{const rec=p.serviceRecommendation||getServiceRecommendation(p.answers);const key=bookingKeyForRec(rec);return rec.urgency==='urgent'?`<div class="urgent-notice">Based on your answers, we recommend booking as soon as possible.</div><button class="book-btn-urgent" onclick="openBooking('${key}')">Book at The Mole Clinic &#8594;</button>`:`<button class="book-btn-hp" onclick="openBooking('${key}')">Book at The Mole Clinic &#8594;</button>`;})()}
       </div>
       <div style="margin-top:20px">
         <div class="collapsible-header" onclick="toggleMethodology()">
@@ -1556,7 +1605,7 @@ function renderHomepage(){
           </div>
         </div>
       </div>
-      <div class="hp-footer"><p>v0.3 &middot; <a href="https://themoleclinic.co.uk" target="_blank">The Mole Clinic</a></p></div>
+      <div class="hp-footer"><p>v0.4 &middot; <a href="#" onclick="openExternal('https://themoleclinic.co.uk');return false">The Mole Clinic</a></p></div>
     </div>
     ${window.location.search.includes('dev=1')?`<div class="dev-toolbar"><button onclick="devSimulateHolidayReturn()">&#127757; Simulate holiday return</button><button onclick="devResetTravel()">&#128260; Reset travel data</button></div>`:''}
   </div>`;
@@ -1712,7 +1761,7 @@ function render(){
   app.innerHTML=`<div class="${dirClass}">${html}</div>`;
   bindEvents();
   if(st.screen==='loading')startLoadingMessages();
-  if(st.screen==='homepage')setTimeout(()=>{animateRiskGaugeIfOpen();initHomepageAsync();},100);
+  if(st.screen==='homepage')setTimeout(()=>{animateRiskGaugeIfOpen();initHomepageAsync();initNearestClinicAsync();},100);
 }
 // ===== EVENT BINDING =====
 function bindEvents(){
