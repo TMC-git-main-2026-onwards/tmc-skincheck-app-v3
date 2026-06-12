@@ -53,13 +53,15 @@ function getClinicsByDistance(lat,lon){
 // ===== UV & SPF LOGIC =====
 // EADO (European Association of Dermato-Oncology) UV Protection Scale.
 // Rounds internally so the band always matches the displayed integer UV.
+// Colours come from the design-system status ramp (docs/design-system.md):
+// green/amber/orange/red only, EXTREME is dark red (no off-brand purple).
 function getUVBand(uv){
   uv=Math.round(uv);
-  if(uv<=2)return{level:'LOW',color:'#4caf50',bg:'#e8f5e9',text:'#2e7d32'};
-  if(uv<=5)return{level:'MODERATE',color:'#ffb300',bg:'#fff8e1',text:'#f57f17'};
-  if(uv<=7)return{level:'HIGH',color:'#ff7043',bg:'#fff3e0',text:'#bf360c'};
-  if(uv<=10)return{level:'VERY HIGH',color:'#e53935',bg:'#ffebee',text:'#b71c1c'};
-  return{level:'EXTREME',color:'#8e24aa',bg:'#f3e5f5',text:'#4a148c'};
+  if(uv<=2)return{level:'LOW',color:'#639922',bg:'#EAF3DE',text:'#3B6D11'};
+  if(uv<=5)return{level:'MODERATE',color:'#D99A21',bg:'#FBF3DC',text:'#854F0B'};
+  if(uv<=7)return{level:'HIGH',color:'#E06A2B',bg:'#FDE8DC',text:'#B4400F'};
+  if(uv<=10)return{level:'VERY HIGH',color:'#C84040',bg:'#FBE3E3',text:'#A32D2D'};
+  return{level:'EXTREME',color:'#8E2424',bg:'#F6DADA',text:'#7C1D1D'};
 }
 // EADO-strict, bias-corrected sun protection recommendation.
 // EADO priority order (Brochez et al. 2026, JDV; EJC 2024 consensus paper):

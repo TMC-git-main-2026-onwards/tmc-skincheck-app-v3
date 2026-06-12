@@ -1,62 +1,8 @@
-// Step 1a regression tests — camera state machine.
-// Evaluates the inline app script under Node with a minimal DOM stub.
+// Step 1a regression tests - camera state machine.
 // Run with: node --test tests/camera-state.test.js
 const { test } = require('node:test');
 const assert = require('node:assert');
-const fs = require('fs');
-const path = require('path');
-
-const root = path.join(__dirname, '..');
-const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-const inline = html.match(/<script>([\s\S]*?)<\/script>/)[1];
-const logicSrc = fs.readFileSync(path.join(root, 'logic.js'), 'utf8');
-
-function makeEl(id) {
-  return {
-    id, style: {}, innerHTML: '', textContent: '', disabled: false, dataset: {},
-    offsetWidth: 0, videoWidth: 0, muted: false, srcObject: null, checked: false, value: '',
-    classList: { toggle() { return false; }, add() {}, remove() {}, contains() { return false; } },
-    addEventListener() {}, setAttribute() {}, removeAttribute() {},
-    querySelector() { return null; }, querySelectorAll() { return []; },
-    appendChild() {}, remove() {}, after() {}, before() {}, closest() { return null; },
-    scrollIntoView() {},
-    getContext() { return null; },
-    play() { return Promise.resolve(); },
-  };
-}
-
-// Builds a fresh sandboxed instance of the app script and returns its
-// internals plus the element registry for assertions.
-function makeEnv() {
-  const registry = { app: makeEl('app') };
-  const reg = (id) => { registry[id] = makeEl(id); return registry[id]; };
-  const documentStub = {
-    getElementById: (id) => registry[id] || null,
-    querySelector: () => null,
-    querySelectorAll: () => [],
-    createElement: () => makeEl(''),
-    body: { appendChild() {}, removeChild() {} },
-  };
-  const windowStub = { scrollTo() {}, open() {}, location: { search: '', href: '', reload() {} }, addEventListener() {} };
-  const localStorageStub = { getItem: () => null, setItem() {}, removeItem() {} };
-  const navigatorStub = {
-    geolocation: { getCurrentPosition() {} },
-    mediaDevices: { getUserMedia: async () => ({ getTracks: () => [{ stop() {} }] }) },
-  };
-  class FakeImage { set src(v) { /* never fires onload in tests */ } }
-  const fn = new Function(
-    'window', 'document', 'localStorage', 'navigator',
-    'requestAnimationFrame', 'cancelAnimationFrame', 'fetch', 'Image', 'confirm', 'alert',
-    logicSrc + '\n' + inline +
-    '\nreturn {showCameraState,retakePhoto,startCamera,handleAnalysisResult,showManualToneSelect,showToneRetakePrompt,st};'
-  );
-  const api = fn(
-    windowStub, documentStub, localStorageStub, navigatorStub,
-    () => 0, () => {}, async () => { throw new Error('network disabled in tests'); },
-    FakeImage, () => true, () => {}
-  );
-  return { registry, reg, api, window: windowStub };
-}
+const { makeEnv } = require('./harness');
 
 test("showCameraState('a') and ('A') resolve the same lowercase DOM elements", () => {
   const { reg, api, registry } = makeEnv();
