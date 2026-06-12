@@ -667,7 +667,7 @@ const st={
   screen:'welcome',navDirection:'forward',history:['welcome'],
   name:'',email:'',postcode:'',consentData:false,consentMarketing:false,
   skinType:null,skinAnalysis:null,capturedPhoto:null,
-  cameraAnimFrame:null,
+  cameraAnimFrame:null,toneRetryDone:false,
   answers:{},currentQuestion:0,abcdeAnswers:{},
   consentLocation:false,consentTravel:false,lat:null,lon:null,city:'',country:'',country_code:'',
   riskScore:null,riskLevel:null,
@@ -711,7 +711,7 @@ function getProgressLabel(){
   }
   const labels={
     welcome:'',email:'STEP 1 OF 4 — YOUR DETAILS',consent:'STEP 1 OF 4 — PRIVACY &amp; CONSENT',
-    arm_camera:'STEP 2 OF 4 — ARM ANALYSIS',
+    arm_camera:'STEP 2 OF 4 — RIGHT ARM ANALYSIS',
     q_intro:'STEP 3 OF 4 — YOUR RISK PROFILE',
     consent_location:'STEP 4 OF 4 — LOCATION',consent_travel:'STEP 4 OF 4 — TRAVEL',
     consent_notifications:'STEP 4 OF 4 — REMINDERS',loading:'BUILDING YOUR PROFILE…',
@@ -741,15 +741,15 @@ function showCameraState(s,dataURL){
   if(s==='B'){
     const b=document.getElementById('cam-state-b');
     if(b){
-      b.innerHTML=`<h2 class="title-lg" style="margin-bottom:14px">Position your arm</h2>
+      b.innerHTML=`<h2 class="title-lg" style="margin-bottom:14px">Position your right arm</h2>
         <div class="cam-wrap">
           <video id="cameraVideo" class="cam-video" autoplay playsinline muted></video>
           <canvas id="overlayCanvas" class="cam-canvas"></canvas>
-          <div class="cam-guide-pill">Align your forearm within the oval</div>
+          <div class="cam-guide-pill">Align your right forearm within the oval</div>
         </div>
         <div style="text-align:center">
           <button class="cam-shutter" onclick="capturePhoto()" title="Take photo" aria-label="Capture photo"></button>
-          <p style="font-size:12px;color:var(--tmc-gray-400);margin-top:10px">Tap when your arm is centred in the oval</p>
+          <p style="font-size:12px;color:var(--tmc-gray-400);margin-top:10px">Tap when your right forearm is centred in the oval</p>
         </div>
         <div style="margin-top:10px;text-align:center">
           <button class="btn-ghost" onclick="stopCamera();showCameraState('A')">&#8592; Back to setup</button>
@@ -766,7 +766,7 @@ function showCameraState(s,dataURL){
       stC.innerHTML=`<div style="padding:32px 20px;text-align:center">
         <div style="font-size:48px;margin-bottom:16px">&#128247;</div>
         <h3 style="font-size:20px;font-weight:700;color:#1a2e2e;margin-bottom:8px">Photo captured</h3>
-        <p style="color:#666;font-size:15px;margin-bottom:28px">Your arm photo has been saved to your profile.</p>
+        <p style="color:#666;font-size:15px;margin-bottom:28px">Your right arm photo has been saved to your profile.</p>
         <button onclick="proceedFromAnalysis()" style="width:100%;padding:14px;background:#00A99D;color:white;border:none;border-radius:10px;font-weight:600;cursor:pointer;font-size:16px">Continue &#8594;</button>
         <p style="margin-top:16px"><a href="#" onclick="retakePhoto();return false;" style="color:#00A99D;font-size:14px;text-decoration:none">Retake photo</a></p>
       </div>`;
@@ -963,6 +963,17 @@ const itaToMonk = (ita) => {
   return 10;                  // Deepest
 };
 
+/*
+ * Resolves {tone, status} where status is one of:
+ *   'ok'       — tone classified from in-ellipse skin pixels
+ *   'lighting' — luminance spread indicates harsh shadows/overexposure;
+ *                prompt a retake ("try facing a window")
+ *   'no_skin'  — too few skin pixels inside the guide ellipse
+ *   'error'    — image could not be decoded
+ * Feedback 1.3: previously sampled a fixed centre rectangle, so beige
+ * furniture (inside the YCbCr skin gamut) polluted the reading, and no
+ * illumination correction was applied.
+ */
 const classifyMonkToneFromPixels = (imageDataURL) => {
   return new Promise((resolve) => {
     const img = new Image();
@@ -975,21 +986,42 @@ const classifyMonkToneFromPixels = (imageDataURL) => {
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0);
 
-      // Sample centre region — inner forearm
-      const x1 = Math.round(W * 0.25);
-      const y1 = Math.round(H * 0.25);
-      const sw = Math.round(W * 0.50);
-      const sh = Math.round(H * 0.50);
-      const imageData = ctx.getImageData(x1, y1, sw, sh);
-      const pixels = imageData.data;
+      // Grey-world illuminant estimate from the WHOLE frame (background
+      // included). Estimating from the skin-only ellipse would neutralise
+      // the skin colour itself and wreck the ITA, so the cast is estimated
+      // globally and the correction applied to the sampled region. Gains
+      // are clamped to avoid overcorrection from colourful backgrounds.
+      const full = ctx.getImageData(0, 0, W, H).data;
+      let fR = 0, fG = 0, fB = 0, fN = 0;
+      for (let i = 0; i < full.length; i += 16) { fR += full[i]; fG += full[i+1]; fB += full[i+2]; fN++; }
+      const grey = (fR + fG + fB) / (3 * fN);
+      const clampGain = (g) => Math.min(1.4, Math.max(0.7, g));
+      const gR = clampGain(grey / ((fR / fN) || 1));
+      const gG = clampGain(grey / ((fG / fN) || 1));
+      const gB = clampGain(grey / ((fB / fN) || 1));
 
-      // Collect ITA values for each valid pixel
+      // Sample ONLY inside the same ellipse the capture overlay draws
+      // (renderArmOverlay: cx=W/2, cy=H/2, rx=W*0.37, ry=H*0.22) so the
+      // reading comes from the forearm, not the table behind it.
+      const cx = W / 2, cy = H / 2, rx = W * 0.37, ry = H * 0.22;
+      const x1 = Math.max(0, Math.round(cx - rx));
+      const y1 = Math.max(0, Math.round(cy - ry));
+      const sw = Math.min(W - x1, Math.round(rx * 2));
+      const sh = Math.min(H - y1, Math.round(ry * 2));
+      const pixels = ctx.getImageData(x1, y1, sw, sh).data;
+
       const itaValues = [];
-
+      const lumas = [];
       for (let i = 0; i < pixels.length; i += 8) {
-        const r = pixels[i];
-        const g = pixels[i+1];
-        const b = pixels[i+2];
+        const idx = i / 4;
+        const px = idx % sw, py = Math.floor(idx / sw);
+        const dx = (px + x1 - cx) / rx, dy = (py + y1 - cy) / ry;
+        if (dx * dx + dy * dy > 1) continue; // outside the guide ellipse
+
+        // Apply the global white-balance correction
+        const r = Math.min(255, pixels[i]   * gR);
+        const g = Math.min(255, pixels[i+1] * gG);
+        const b = Math.min(255, pixels[i+2] * gB);
         const brightness = (r + g + b) / 3;
 
         // Skip overexposed and underexposed pixels
@@ -1009,10 +1041,21 @@ const classifyMonkToneFromPixels = (imageDataURL) => {
         if (ita < -80 || ita > 80) continue;
 
         itaValues.push(ita);
+        lumas.push(lab.L);
       }
 
       if (itaValues.length < 10) {
-        resolve(null);
+        resolve({ tone: null, status: 'no_skin' });
+        return;
+      }
+
+      // Lighting quality gate: a wide L* spread across sampled skin means a
+      // harsh shadow or partial overexposure crosses the forearm — any tone
+      // estimate would be unreliable, so ask for a retake instead.
+      lumas.sort((a, b) => a - b);
+      const lSpread = lumas[Math.floor(lumas.length * 0.90)] - lumas[Math.floor(lumas.length * 0.10)];
+      if (lSpread > 30) {
+        resolve({ tone: null, status: 'lighting' });
         return;
       }
 
@@ -1025,10 +1068,9 @@ const classifyMonkToneFromPixels = (imageDataURL) => {
       for (let i = trimStart; i < trimEnd; i++) sum += itaValues[i];
       const medianITA = sum / (trimEnd - trimStart);
 
-      const monk = itaToMonk(medianITA);
-      resolve(monk);
+      resolve({ tone: itaToMonk(medianITA), status: 'ok' });
     };
-    img.onerror = () => resolve(null);
+    img.onerror = () => resolve({ tone: null, status: 'error' });
     img.src = imageDataURL;
   });
 };
@@ -1063,11 +1105,33 @@ const analyseArmPhoto = async (imageDataURL) => {
     })()
   ]);
   const worker = workerResult.status === 'fulfilled' ? workerResult.value : null;
-  const pixelTone = pixelResult.status === 'fulfilled' ? pixelResult.value : null;
-  const monkTone = pixelTone !== null ? pixelTone : 3;
+  const pixel = pixelResult.status === 'fulfilled' && pixelResult.value ? pixelResult.value : { tone: null, status: 'error' };
+  // Worker Monk estimate for cross-checking the pixel reading (feedback 1.3).
+  // Tolerates worker deployments that don't return monkToneEstimate yet.
+  const workerTone = worker && worker.monkToneEstimate >= 1 && worker.monkToneEstimate <= 10
+    ? Math.round(worker.monkToneEstimate) : null;
+  let monkTone = null, monkToneSource = null, toneStatus = 'ok';
+  if (pixel.status === 'lighting') {
+    toneStatus = 'lighting';
+  } else if (pixel.tone != null) {
+    monkTone = pixel.tone;
+    monkToneSource = 'pixel_sampling';
+    // Pixel and worker estimates more than 2 tones apart: confidence is low —
+    // prompt a retake rather than trusting either reading
+    if (workerTone != null && Math.abs(workerTone - pixel.tone) > 2) toneStatus = 'mismatch';
+  } else if (workerTone != null) {
+    monkTone = workerTone;
+    monkToneSource = 'worker';
+  } else {
+    // NO silent default — a fallback of tone 3 biases light (feedback 1.3).
+    // A null tone routes the user to manual swatch selection.
+    toneStatus = pixel.status || 'error';
+  }
   return {
     monkTone,
-    monkToneSource: pixelTone !== null ? 'pixel_sampling' : 'default',
+    monkToneSource,
+    toneStatus,
+    workerTone,
     moleCount: worker ? worker.moleCount : -1,
     moleCountCategory: worker ? worker.moleCountCategory : 'under7',
     confidence: worker ? worker.confidence : 'low',
@@ -1083,10 +1147,87 @@ function handleAnalysisResult(result){
   // 7-10 arm moles → ~50+ body moles; 11+ arm → elevated melanoma risk
   const moleMap={under7:'under10','7to10':'10to50','11plus':'50plus'};
   const moleCountAnswer=moleRaw?(moleMap[moleRaw]||'under10'):null;
-  if(mst)st.skinType=mst;
   if(moleCountAnswer)st.answers.mole_count=moleCountAnswer;
-  st.skinAnalysis={mst,monkToneSource:result.monkToneSource||null,moleRaw,moleCountCategory:moleRaw,moleCount:result.moleCount!=null?result.moleCount:-1,moleCountAnswer,confidence,photoDataUrl:st.capturedPhoto};
+  st.skinAnalysis={mst,monkToneSource:result.monkToneSource||null,workerTone:result.workerTone??null,toneStatus:result.toneStatus,moleRaw,moleCountCategory:moleRaw,moleCount:result.moleCount!=null?result.moleCount:-1,moleCountAnswer,confidence,photoDataUrl:st.capturedPhoto};
+  // Tone quality gates (feedback 1.3): uneven lighting or a pixel/worker
+  // mismatch gets ONE retake prompt, then falls back to manual selection
+  if(result.toneStatus==='lighting'||result.toneStatus==='mismatch'){
+    if(!st.toneRetryDone){st.toneRetryDone=true;showToneRetakePrompt(result.toneStatus);return;}
+    showManualToneSelect();return;
+  }
+  if(mst==null){showManualToneSelect();return;}
+  st.skinType=mst;
   showAnalysisResults();
+}
+function showToneRetakePrompt(reason){
+  const stC=document.getElementById('cam-state-c');
+  if(!stC){showManualToneSelect();return;}
+  const msg=reason==='lighting'
+    ?'Lighting looks uneven — try facing a window, with no harsh shadows across your arm.'
+    :'We couldn\'t get a confident skin tone reading from that photo. One more try in better light usually fixes it.';
+  stC.innerHTML=`<div class="content animate-in">
+    <h2 class="title-lg">Let's try that again</h2>
+    <div class="cam-error-box">
+      <div style="font-size:15px;font-weight:600;color:var(--tmc-coral);margin-bottom:6px">Skin tone reading unreliable</div>
+      <div style="font-size:13px;color:var(--tmc-gray-600);line-height:1.5">${msg}</div>
+    </div>
+    <div style="margin-top:20px;display:flex;flex-direction:column;gap:10px">
+      <button class="btn-primary" onclick="retakePhoto()">Retake photo</button>
+      <button class="btn-ghost" onclick="showManualToneSelect()">Choose my skin tone manually</button>
+    </div>
+  </div>`;
+  showCameraState('C');
+}
+// Monk swatch scale — used for both the confirmation step and manual selection
+function renderMonkSwatches(selected,onclickFn){
+  return`<div style="display:flex;gap:5px;justify-content:center;margin-top:12px">${skinTypes.map(t=>
+    `<div onclick="${onclickFn}(${t.id})" role="button" aria-label="Monk tone ${t.id}" style="width:27px;height:27px;border-radius:50%;background:${t.color};cursor:pointer;box-sizing:border-box;border:${t.id===selected?'3px solid var(--tmc-teal)':'1.5px solid rgba(0,0,0,.15)'}"></div>`).join('')}</div>`;
+}
+// Manual skin tone selection — used when the user skips the camera, when
+// detection fails, or after a failed retry. Source recorded as 'manual'.
+function showManualToneSelect(){
+  if(st.screen!=='arm_camera'){navigate('arm_camera');}
+  const stC=document.getElementById('cam-state-c');
+  if(!stC)return;
+  stC.innerHTML=`<div class="content animate-in">
+    <h2 class="title-lg">Select your skin tone</h2>
+    <p class="subtitle-sm">Tap the swatch on the Monk scale that best matches the inside of your right forearm.</p>
+    <div class="card" style="margin-top:16px">
+      ${renderMonkSwatches(st.skinType,'manualToneTap')}
+      <p id="manualToneLabel" style="text-align:center;font-size:13px;color:var(--tmc-gray-600);margin-top:10px">${st.skinType?`Monk tone ${st.skinType} of 10`:'No tone selected yet'}</p>
+    </div>
+    <div style="margin-top:20px">
+      <button class="btn-primary" id="manualToneNext" onclick="confirmManualTone()" ${st.skinType?'':'disabled'}>Continue &#8594;</button>
+    </div>
+  </div>`;
+  showCameraState('C');
+}
+function manualToneTap(id){
+  st.skinType=id;
+  if(st.skinAnalysis)st.skinAnalysis.mst=id;
+  const stC=document.getElementById('cam-state-c');
+  if(!stC)return;
+  // refresh swatch highlight + label + button in place
+  const card=stC.querySelector('.card');
+  if(card)card.innerHTML=`${renderMonkSwatches(id,'manualToneTap')}<p id="manualToneLabel" style="text-align:center;font-size:13px;color:var(--tmc-gray-600);margin-top:10px">Monk tone ${id} of 10</p>`;
+  const btn=document.getElementById('manualToneNext');
+  if(btn)btn.disabled=false;
+}
+function confirmManualTone(){
+  if(!st.skinType)return;
+  if(!st.skinAnalysis)st.skinAnalysis={mst:st.skinType,photoDataUrl:null};
+  st.skinAnalysis.mst=st.skinType;
+  st.skinAnalysis.monkToneSource='manual';
+  proceedFromAnalysis();
+}
+// Confirmation step: user taps a different swatch to adjust the detected tone
+function adjustDetectedTone(id){
+  st.skinType=id;
+  if(st.skinAnalysis){st.skinAnalysis.mst=id;st.skinAnalysis.monkToneSource='user_adjusted';}
+  const wrap=document.getElementById('toneConfirmSwatches');
+  if(wrap)wrap.innerHTML=renderMonkSwatches(id,'adjustDetectedTone');
+  const lbl=document.getElementById('toneConfirmLabel');
+  if(lbl)lbl.innerHTML=`Monk tone <strong>${id}</strong> of 10 — adjusted by you`;
 }
 function handleAnalysisError(e){
   const stC=document.getElementById('cam-state-c');
@@ -1107,20 +1248,22 @@ function showAnalysisResults(){
   const sa=st.skinAnalysis;
   const stC=document.getElementById('cam-state-c');
   if(!stC)return;
-  const skinTone=sa.mst?skinTypes.find(s=>s.id===sa.mst):null;
   const moleLabels={under7:'Fewer than 7',['7to10']:'7–10',['11plus']:'11 or more'};
   const bodyLabels={under10:'Fewer than 10 (typical)','10-20':'10–20','20-50':'20–50','10to50':'10–50 (moderate)','50plus':'50 or more (elevated)'};
   stC.innerHTML=`<div class="content animate-in">
     <h2 class="title-lg">&#10003; Analysis complete</h2>
-    ${st.capturedPhoto?`<img src="${st.capturedPhoto}" class="cam-result-img" alt="Captured arm photo" style="margin-top:14px">`:``}
+    ${st.capturedPhoto?`<img src="${st.capturedPhoto}" class="cam-result-img" alt="Captured right forearm photo" style="margin-top:14px">`:``}
     <div class="cam-result-card">
-      <div style="font-size:13px;font-weight:700;color:var(--tmc-teal-dark);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">AI Analysis Results</div>
-      ${sa.mst?`<div class="cam-result-row">
-        <span class="cam-result-label">Skin tone (Monk Scale)</span>
-        <span class="cam-result-value"><span style="display:inline-block;width:16px;height:16px;border-radius:50%;background:${skinTone?.color||'#ccc'};border:1.5px solid rgba(0,0,0,.15);vertical-align:middle;margin-right:4px"></span>MST ${sa.mst}/10</span>
-      </div>`:``}
+      <div style="font-size:13px;font-weight:700;color:var(--tmc-teal-dark);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Your detected skin tone</div>
+      <div id="toneConfirmSwatches">${renderMonkSwatches(sa.mst,'adjustDetectedTone')}</div>
+      <p id="toneConfirmLabel" style="text-align:center;font-size:13px;color:var(--tmc-gray-600);margin-top:10px">Monk tone <strong>${sa.mst}</strong> of 10 — detected from your photo</p>
+      <p style="text-align:center;font-size:14px;font-weight:600;color:var(--tmc-navy);margin-top:10px">Does this look right?</p>
+      <p style="text-align:center;font-size:12px;color:var(--tmc-gray-600);margin-top:4px">Tap a different swatch to adjust it.</p>
+    </div>
+    <div class="cam-result-card" style="margin-top:10px">
+      <div style="font-size:13px;font-weight:700;color:var(--tmc-teal-dark);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">AI mole analysis</div>
       ${sa.moleRaw?`<div class="cam-result-row">
-        <span class="cam-result-label">Visible arm moles</span>
+        <span class="cam-result-label">Visible right-arm moles</span>
         <span class="cam-result-value">${moleLabels[sa.moleRaw]||sa.moleRaw}</span>
       </div>
       <div class="cam-result-row">
@@ -1132,14 +1275,16 @@ function showAnalysisResults(){
         <span class="cam-result-value" style="text-transform:capitalize">${sa.confidence}</span>
       </div>
     </div>
-    <p style="font-size:11px;color:var(--tmc-gray-400);margin-top:10px;line-height:1.5">Arm mole count predicts body mole burden per Bataille et al. 2015 (King's College London). Body mole count question will be pre-filled in your questionnaire.</p>
+    <p style="font-size:11px;color:var(--tmc-gray-400);margin-top:10px;line-height:1.5">Right-arm mole count predicts body mole burden per Bataille et al. 2015 (King's College London). Body mole count question will be pre-filled in your questionnaire.</p>
     <div style="margin-top:20px;display:flex;gap:10px">
-      <button class="btn-secondary" onclick="st.capturedPhoto=null;st.skinAnalysis=null;retakePhoto()" style="flex:1">Retake</button>
-      <button class="btn-primary" onclick="proceedFromAnalysis()" style="flex:1">Continue &#8594;</button>
+      <button class="btn-secondary" onclick="st.capturedPhoto=null;st.skinAnalysis=null;retakePhoto()" style="flex:1">Retake photo</button>
+      <button class="btn-primary" onclick="proceedFromAnalysis()" style="flex:1">Confirm &#8594;</button>
     </div>
   </div>`;
 }
-function proceedWithoutAnalysis(){st.currentQuestion=0;navigate('q_intro');}
+// "Skip" now routes to manual tone selection — the profile should never be
+// missing a skin tone, and detection must never silently default (feedback 1.3)
+function proceedWithoutAnalysis(){showManualToneSelect();}
 function proceedFromAnalysis(){st.currentQuestion=0;navigate('q_intro');}
 // ===== RENDER FUNCTIONS =====
 function renderWelcome(){
@@ -1153,7 +1298,7 @@ function renderWelcome(){
     </div>
     <div class="content">
       <div class="feature-list">
-        <div class="feature-item animate-in-delay-1"><div class="feature-icon feature-icon-teal">&#129504;</div><div><div class="feature-title">AI Skin Analysis</div><div class="feature-desc">Camera analysis of your arm to detect your Monk skin tone and mole profile — powered by Claude AI</div></div></div>
+        <div class="feature-item animate-in-delay-1"><div class="feature-icon feature-icon-teal">&#129504;</div><div><div class="feature-title">AI Skin Analysis</div><div class="feature-desc">Camera analysis of your right forearm to detect your Monk skin tone and mole profile — powered by Claude AI</div></div></div>
         <div class="feature-item animate-in-delay-2"><div class="feature-icon feature-icon-coral">&#9728;</div><div><div class="feature-title">Live UV &amp; Sun Safety</div><div class="feature-desc">Real-time UV index with personalised SPF recommendation for your skin tone</div></div></div>
         <div class="feature-item animate-in-delay-3"><div class="feature-icon feature-icon-gold">&#128202;</div><div><div class="feature-title">Your Skin Safety Dashboard</div><div class="feature-desc">Clinically informed questions covering your skin profile, personal history, UV exposure, and any areas of concern</div></div></div>
       </div>
@@ -1212,13 +1357,25 @@ function renderArmCamera(){
   return`<div class="screen">
     ${renderHeader()}
     <div id="cam-state-a" class="content animate-in">
-      <h2 class="title-lg">&#129504; Arm Skin Analysis</h2>
-      <p class="subtitle">We'll use your camera and Claude AI to detect your Monk skin tone and count visible moles on your arm — automatically filling in part of your profile.</p>
+      <h2 class="title-lg">&#129504; Right Arm Skin Analysis</h2>
+      <p class="subtitle">We'll use your camera and Claude AI to detect your Monk skin tone and count visible moles on your <strong>right forearm</strong> — automatically filling in part of your profile. The evidence behind arm mole counting is specific to the right arm.</p>
+      <div class="card" style="margin-top:16px;padding:14px;text-align:center">
+        <svg viewBox="0 0 320 150" width="100%" style="max-width:320px" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Diagram of a correctly framed right inner forearm: wrist on the left, elbow on the right, on a plain background">
+          <rect x="0" y="0" width="320" height="150" rx="12" fill="#eef1f4"/>
+          <ellipse cx="34" cy="72" rx="15" ry="22" fill="#d7bd96" stroke="#b89a73" stroke-width="2"/>
+          <path d="M42,72 C42,58 62,52 84,52 L240,46 C268,46 290,57 292,72 C290,87 268,98 240,98 L84,92 C62,92 42,86 42,72 Z" fill="#d7bd96" stroke="#b89a73" stroke-width="2"/>
+          <circle cx="148" cy="68" r="3" fill="#6b4630"/><circle cx="198" cy="78" r="2.5" fill="#6b4630"/><circle cx="122" cy="80" r="2" fill="#6b4630"/>
+          <ellipse cx="166" cy="72" rx="120" ry="48" fill="none" stroke="#2ec4b6" stroke-width="2.5" stroke-dasharray="10,6"/>
+          <text x="34" y="132" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="12" font-weight="700" fill="#1a2332">WRIST</text>
+          <text x="282" y="132" text-anchor="middle" font-family="DM Sans,sans-serif" font-size="12" font-weight="700" fill="#1a2332">ELBOW</text>
+        </svg>
+        <p style="font-size:12px;color:var(--tmc-gray-600);margin-top:8px;line-height:1.5">Your screen should mirror this: <strong>right inner forearm</strong>, wrist on the left, elbow on the right, on a plain background.</p>
+      </div>
       <div class="photo-tips-list">
-        <div class="photo-tip-row"><div class="photo-tip-emoji">&#128759;</div><div class="photo-tip-body"><strong>Natural daylight works best</strong>Stand near a window — avoid warm yellow indoor lighting as it can affect the skin tone reading.</div></div>
-        <div class="photo-tip-row"><div class="photo-tip-emoji">&#9728;&#65039;</div><div class="photo-tip-body"><strong>Good, even lighting</strong>Natural daylight or a bright room. Avoid shadows.</div></div>
-        <div class="photo-tip-row"><div class="photo-tip-emoji">&#128170;</div><div class="photo-tip-body"><strong>Extend your forearm</strong>Hold your arm flat, palm up. Roll up your sleeve to the elbow.</div></div>
-        <div class="photo-tip-row"><div class="photo-tip-emoji">&#128247;</div><div class="photo-tip-body"><strong>30–40 cm from camera</strong>Fill the frame with your forearm from wrist to elbow.</div></div>
+        <div class="photo-tip-row"><div class="photo-tip-emoji">&#129305;</div><div class="photo-tip-body"><strong>Right arm, left hand</strong>Hold your phone in your left hand to photograph your right forearm — that's the right way round. Palm up, sleeve rolled to the elbow.</div></div>
+        <div class="photo-tip-row"><div class="photo-tip-emoji">&#128759;</div><div class="photo-tip-body"><strong>Natural daylight works best</strong>Face a window — avoid warm yellow indoor lighting and harsh shadows, as they affect the skin tone reading.</div></div>
+        <div class="photo-tip-row"><div class="photo-tip-emoji">&#129003;</div><div class="photo-tip-body"><strong>Plain background</strong>Rest your arm on a plain, non-beige surface if possible — beige can be mistaken for skin.</div></div>
+        <div class="photo-tip-row"><div class="photo-tip-emoji">&#128247;</div><div class="photo-tip-body"><strong>30–40 cm from camera</strong>Fill the oval with your right forearm from wrist to elbow.</div></div>
       </div>
       <div style="margin-top:20px;display:flex;flex-direction:column;gap:12px">
         <button class="btn-primary" id="camStartBtn" onclick="startCamera()">Start Camera &#8594;</button>
@@ -1807,7 +1964,7 @@ async function retryPostcodeUV(){
   if(coords){try{const wd=await fetchWeatherAndUV(coords.lat,coords.lon);if(wd){updateWeatherUI(wd,{city:`Based on your postcode (${p.postcode.toUpperCase()})`});return;}}catch(e){}}
   showPostcodeUVError(p);
 }
-function resetProfile(){if(confirm('This will clear your profile and restart the questionnaire. Are you sure?')){clearProfile();stopCamera();window.activeCameraStream=null;Object.assign(st,{profile:null,screen:'welcome',history:['welcome'],weatherData:null,currentCity:'',skinAnalysis:null,capturedPhoto:null,cameraAnimFrame:null});render();}}
+function resetProfile(){if(confirm('This will clear your profile and restart the questionnaire. Are you sure?')){clearProfile();stopCamera();window.activeCameraStream=null;Object.assign(st,{profile:null,screen:'welcome',history:['welcome'],weatherData:null,currentCity:'',skinAnalysis:null,capturedPhoto:null,cameraAnimFrame:null,toneRetryDone:false,skinType:null});render();}}
 function afterLocationConsent(){if(st.consentLocation)navigate('consent_travel');else navigate('consent_notifications');}
 // ===== MAIN RENDER =====
 function render(){
