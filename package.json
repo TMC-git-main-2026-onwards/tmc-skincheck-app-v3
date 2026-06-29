@@ -1,0 +1,23 @@
+{
+  "name": "tmc-skincheck-app",
+  "version": "0.4.0",
+  "private": true,
+  "description": "The Mole Clinic — SkinCheck. Native iOS/Android shell (Capacitor) over the existing web app.",
+  "scripts": {
+    "sync:web": "node scripts/sync-web.mjs",
+    "test": "node tests/check-syntax.js && node --test \"tests/*.test.js\"",
+    "cap:sync": "npm run sync:web && cap sync",
+    "cap:android": "npm run cap:sync && cap open android",
+    "cap:ios": "npm run cap:sync && cap open ios"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.0"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/app": "^6.0.2",
+    "@capacitor/browser": "^6.0.5",
+    "@capacitor/core": "^6.2.0",
+    "@capacitor/ios": "^6.2.0"
+  }
+}
