@@ -66,10 +66,28 @@ tar czf "$WORK/repo.tgz" -C "$REPO" \
 cat > "$WORK/remote-build.sh" <<'REMOTE'
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
-sudo apt-get update -y -q
-sudo apt-get install -y -q openjdk-17-jdk unzip wget
+
+# A freshly booted Azure VM is still running cloud-init and unattended-upgrades,
+# which hold the dpkg/apt locks and leave the package lists half-written. Racing
+# them makes apt fail with "Unable to locate package". Wait, then retry.
+sudo cloud-init status --wait >/dev/null 2>&1 || true
+apt_retry() {
+  for attempt in 1 2 3 4 5; do
+    if sudo apt-get "$@"; then return 0; fi
+    echo "apt attempt $attempt failed; retrying in 15s" >&2
+    sleep 15
+  done
+  echo "apt failed after 5 attempts: $*" >&2
+  return 1
+}
+apt_retry update -y -q
+apt_retry install -y -q openjdk-17-jdk unzip wget
+# Fail loudly here rather than 3 minutes later inside Gradle.
+command -v javac >/dev/null || { echo "FATAL: JDK not installed" >&2; exit 1; }
+command -v unzip >/dev/null || { echo "FATAL: unzip not installed" >&2; exit 1; }
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - >/dev/null 2>&1
-sudo apt-get install -y -q nodejs
+apt_retry install -y -q nodejs
+command -v npm >/dev/null || { echo "FATAL: node/npm not installed" >&2; exit 1; }
 rm -rf "$HOME/app" && mkdir -p "$HOME/app" && tar xzf "$HOME/repo.tgz" -C "$HOME/app"
 export ANDROID_HOME="$HOME/android-sdk"
 mkdir -p "$ANDROID_HOME/cmdline-tools"
