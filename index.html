@@ -1347,7 +1347,7 @@ function handleAnalysisError(e){
     <h2 class="title-lg">Analysis failed</h2>
     <div class="cam-error-box">
       <div style="font-size:15px;font-weight:600;color:var(--status-vhigh-fg);margin-bottom:6px">Could not analyse photo</div>
-      <div style="font-size:13px;color:var(--ink-500)">${e.message||'Please check your API key and try again.'}</div>
+      <div style="font-size:13px;color:var(--ink-500)">${e.message||'We could not read a skin tone from that photo. Try again in better light, or choose your tone manually.'}</div>
     </div>
     <div style="margin-top:20px;display:flex;flex-direction:column;gap:10px">
       <button class="btn-primary" onclick="showCameraState('A')">Try Again</button>
@@ -1393,7 +1393,7 @@ function renderWelcome(){
     </div>
     <div class="content">
       <div class="feature-list">
-        <div class="feature-item animate-in-delay-1"><div class="feature-icon">${icon('sparkles',20)}</div><div><div class="feature-title">AI Skin Analysis</div><div class="feature-desc">Camera analysis of your right forearm to detect your Monk skin tone and mole profile — powered by Claude AI</div></div></div>
+        <div class="feature-item animate-in-delay-1"><div class="feature-icon">${icon('sparkles',20)}</div><div><div class="feature-title">On-device skin tone check</div><div class="feature-desc">A photo of your forearm is analysed on your phone to estimate your skin tone — the image never leaves your device</div></div></div>
         <div class="feature-item animate-in-delay-2"><div class="feature-icon">${icon('sun',20)}</div><div><div class="feature-title">Live UV &amp; Sun Safety</div><div class="feature-desc">Real-time UV index with personalised SPF recommendation for your skin tone</div></div></div>
         <div class="feature-item animate-in-delay-3"><div class="feature-icon">${icon('layout-dashboard',20)}</div><div><div class="feature-title">Your Skin Safety Dashboard</div><div class="feature-desc">Clinically informed questions covering your skin profile, personal history, UV exposure, and any areas of concern</div></div></div>
       </div>
@@ -1432,7 +1432,7 @@ function renderConsent(){
         <div class="card" style="margin-bottom:12px">
           <div class="consent-row">
             <div class="consent-checkbox ${st.consentData?'checked':''}" id="consentData"></div>
-            <div class="consent-text"><strong>Data processing consent</strong> (required)<br>I consent to The Mole Clinic collecting and processing my personal data for the purpose of generating my skin health risk profile, stored in accordance with GDPR. <a href="#">Privacy policy</a></div>
+            <div class="consent-text"><strong>Data processing consent</strong> (required)<br>I consent to The Mole Clinic collecting and processing my personal data for the purpose of generating my skin health risk profile, stored in accordance with GDPR. <a href="#" onclick="openExternal('https://themoleclinic.co.uk/privacy/');return false">Privacy policy</a></div>
           </div>
         </div>
         <div class="card">
@@ -1453,8 +1453,8 @@ function renderArmCamera(){
   return`<div class="screen">
     ${renderHeader()}
     <div id="cam-state-a" class="content animate-in">
-      <h2 class="title-lg">Right Arm Skin Analysis</h2>
-      <p class="subtitle">We'll use your camera and Claude AI to detect your Monk skin tone and count visible moles on your <strong>right forearm</strong> — automatically filling in part of your profile. The evidence behind arm mole counting is specific to the right arm.</p>
+      <h2 class="title-lg">Skin tone from a photo</h2>
+      <p class="subtitle">We'll use your camera to estimate your Monk skin tone from your <strong>right forearm</strong> — automatically filling in part of your profile. The analysis happens entirely on your phone and the photo is never uploaded. You can also pick your tone by hand instead.</p>
       <div class="card" style="margin-top:16px;padding:14px;text-align:center">
         <svg viewBox="0 0 320 150" width="100%" style="max-width:320px" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Diagram of a correctly framed right inner forearm: wrist on the left, elbow on the right, on a plain background">
           <rect x="0" y="0" width="320" height="150" rx="12" fill="#F0F6FC"/>
@@ -1957,7 +1957,7 @@ function renderHomepage(){
               <div class="ref-item"><strong>Google Monk Skin Tone Scale (MST)</strong>Ellis Monk, Harvard University / Google, 2019. 10-point scale representing the full range of human skin tones. Skin tone is classified in this app from in-ellipse pixel sampling of the captured right-forearm photo using the Individual Typology Angle (ITA, Chardon et al. 1991) in CIELAB colour space, cross-checked against an AI estimate and confirmed by the user — objective colour measurement rather than visual estimation alone.</div>
               <div class="ref-item"><strong>Gandini et al. (2005) — Meta-analysis of risk factors for cutaneous melanoma</strong>European Journal of Cancer, 41(1), 28-44. First-degree relative with melanoma: RR 2.24. Very fair skin (Fitzpatrick I–II): RR 2.09. Sunbed use, sunburn history and UV exposure weights derived from this meta-analysis. Notably, intermittent exposure raises melanoma risk (OR ≈ 1.6) while chronic/occupational exposure does not (OR ≈ 0.95) — the basis for keeping the cumulative UV dimension separate from the melanoma score.</div>
               <div class="ref-item"><strong>Tucker et al. (1997) — Mole count as independent risk factor</strong>Journal of the National Cancer Institute. 50+ moles confers RR 4.8 versus fewer than 15 moles. Strongest modifiable risk predictor after family history.</div>
-              <div class="ref-item"><strong>Bataille et al. (2015) — Arm Mole Count (King's College London)</strong>British Journal of Dermatology. DOI: 10.1111/bjd.14119. Mole count on the right arm predicts total body mole burden. 7–10 arm moles = ~50+ body moles; 11+ arm moles = elevated melanoma risk indicator. Used here to map AI mole count to body mole estimate.</div>
+              <div class="ref-item"><strong>Bataille et al. (2015) — Arm Mole Count (King's College London)</strong>British Journal of Dermatology. DOI: 10.1111/bjd.14119. Mole count on the right arm predicts total body mole burden. 7–10 arm moles = ~50+ body moles; 11+ arm moles = elevated melanoma risk indicator. Underpins the mole-count question in the questionnaire.</div>
               <div class="ref-item"><strong>Bradford et al. (2010) — Second primary melanoma risk</strong>Journal of the National Cancer Institute. Previous melanoma diagnosis: RR 8.5 for second primary melanoma. Informs the elevated weight given to personal history of skin cancer.</div>
               <div class="ref-item"><strong>IARC Working Group (2006) — Sunbed carcinogenicity</strong>Lancet Oncology. Sunbed use before age 35 increases melanoma risk by 75% (RR 1.75). WHO classified sunbeds as Group 1 carcinogens (definitively carcinogenic to humans).</div>
               <div class="ref-item"><strong>Green et al. (1999) — Daily sunscreen and melanoma prevention</strong>Lancet. Randomised controlled trial (Queensland, Australia). Daily SPF 15 sunscreen reduces melanoma incidence by ~50% over 10 years. Informs the protective weighting applied to consistent sunscreen use.</div>
