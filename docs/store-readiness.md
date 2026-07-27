@@ -3,6 +3,26 @@
 > Generated 2026-06-29 from a multi-agent audit of the actual codebase
 > (5 dimensions, 37 findings, verified against source). Re-run before
 > submission as the code changes.
+>
+> **Progress since the audit (2026-07-27).** Fixed: the photo upload was
+> removed so the skin photo genuinely never leaves the device (blockers 1 and
+> 2 as they applied to the photo); location copy made truthful; the dead
+> `href="#"` privacy link now opens
+> https://themoleclinic.co.uk/privacy/ (blocker 3 — *link* fixed; the policy
+> *content* still needs review, see below); `ITSAppUsesNonExemptEncryption`
+> added (blocker 5); stale "powered by Claude AI" / mole-counting claims
+> removed from the welcome and camera screens; `allowBackup="false"`;
+> `targetSdk`/`compileSdk` raised to 35 with AGP 8.7.2 / Gradle 8.9;
+> `ACCESS_FINE_LOCATION` dropped in favour of coarse only.
+>
+> **Still open and owned by TMC:** store accounts (blocker 7), the App Store
+> Connect record + numeric Apple ID (blocker 6), the store privacy
+> disclosures (blocker 4), branded app icons, CI signing secrets, and
+> confirmation that the website privacy policy actually covers this app's
+> data handling (name, email, and approximate location sent to Open-Meteo /
+> OpenStreetMap / postcodes.io). Explicit Art. 9 consent is no longer needed
+> for an off-device photo upload, since there isn't one — but the consent
+> wording should still be re-read against what the app now does.
 
 **Verdict: Not submittable to TestFlight or Play internal testing as-is — seven hard blockers.**
 

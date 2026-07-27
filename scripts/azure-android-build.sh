@@ -16,7 +16,9 @@ set -euo pipefail
 SUB="${SUB:-59b56eea-74c6-43fc-95cb-aa1afc0e2065}"   # TMC Azure Sandbox and Testing
 REGION="${REGION:-ukwest}"
 SIZE="${SIZE:-Standard_D2as_v5}"
-RG="${RG:-TMC-SKINCHECK-BUILDVM}"
+# Unique per run: teardown is --no-wait, so a fixed name makes two builds in
+# quick succession collide with "ResourceGroupBeingDeleted".
+RG="${RG:-TMC-SKINCHECK-BUILDVM-$$}"
 VM="${VM:-tmc-androidbuild}"
 KEEP=0; [ "${1:-}" = "--keep" ] && KEEP=1
 
