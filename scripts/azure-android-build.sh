@@ -78,7 +78,7 @@ rm -rf "$ANDROID_HOME/cmdline-tools/latest"
 mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
 export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
 yes | sdkmanager --licenses >/dev/null 2>&1 || true
-sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" >/dev/null
+sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0" >/dev/null
 cd "$HOME/app"
 npm install --no-audit --no-fund
 npm run sync:web

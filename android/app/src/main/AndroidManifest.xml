@@ -43,9 +43,11 @@
     <!-- Camera: skin-photo capture via getUserMedia in the WebView -->
     <uses-permission android:name="android.permission.CAMERA" />
 
-    <!-- Location: UV-index / nearest-clinic lookups via navigator.geolocation -->
+    <!-- Location: UV-index / nearest-clinic lookups via navigator.geolocation.
+         COARSE only — the app requests positions with enableHighAccuracy:false
+         and needs city-level accuracy at best, so precise location is not
+         justified (and Play requires justifying FINE). -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
     <!-- Declared optional so the app installs on camera-less / GPS-less devices -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
