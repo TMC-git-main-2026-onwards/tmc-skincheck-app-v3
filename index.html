@@ -335,6 +335,21 @@ input:checked+.toggle-slider:before{transform:translateX(24px)}
 /* Not-ready exit path */
 .exit-links{text-align:center;font-size:13px;color:var(--ink-400);margin-top:12px}
 .exit-links button{background:none;border:none;color:var(--tmc-blue);font-size:13px;font-weight:500;cursor:pointer;padding:8px 2px;min-height:44px}
+/* ── Install banner (PWA): Android one-tap install / iOS AHS steps ── */
+.install-banner{position:fixed;left:50%;bottom:calc(12px + env(safe-area-inset-bottom,0px));
+  transform:translateX(-50%) translateY(130%);width:min(456px,calc(100% - 24px));
+  background:var(--tmc-navy);color:#fff;border-radius:var(--radius-lg);
+  box-shadow:0 8px 30px rgba(31,42,55,.35);padding:16px;z-index:9999;
+  transition:transform 300ms ease}
+.install-banner.in{transform:translateX(-50%) translateY(0)}
+.install-title{font-size:16px;font-weight:700;margin-bottom:4px}
+.install-text{font-size:13.5px;line-height:1.5;color:#C9D8E8}
+.install-text .icon{vertical-align:-4px;margin:0 2px}
+.install-actions{display:flex;gap:10px;margin-top:12px}
+.install-btn{flex:1;min-height:44px;border:none;border-radius:var(--radius-md);
+  font-size:15px;font-weight:600;cursor:pointer;font-family:var(--font-body)}
+.install-btn.primary{background:var(--tmc-cyan);color:#08272F}
+.install-btn.ghost{background:rgba(255,255,255,.12);color:#fff}
 </style>
 </head>
 <body>
@@ -2299,6 +2314,79 @@ function init(){
   }
 }
 init();
+</script>
+<script>
+// PWA install prompt. Browsers require a user gesture to install, so fully
+// automatic install from a link/QR is impossible by design. This gets as
+// close as each platform allows:
+//  - Android/Chrome: capture beforeinstallprompt and offer a one-tap
+//    "Install" button that fires the native install dialog.
+//  - iOS/Safari: no programmatic install exists; show the two Share-menu
+//    steps instead.
+// Never shown in the native shell, when already installed, or within 14 days
+// of being dismissed. ?install-ui=android|ios forces a variant for testing.
+(function(){
+  var isNative = window.Capacitor && typeof Capacitor.isNativePlatform==='function' && Capacitor.isNativePlatform();
+  var isStandalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+  var force = new URLSearchParams(location.search).get('install-ui');
+  if ((isNative || isStandalone) && !force) return;
+  var KEY='tmcInstallDismissedAt';
+  var dismissedAt = 0;
+  try { dismissedAt = +(localStorage.getItem(KEY)||0); } catch(e){}
+  if (!force && Date.now() - dismissedAt < 14*24*3600*1000) return;
+
+  var deferred = null;
+  var banner = document.createElement('div');
+  banner.className='install-banner';
+  banner.setAttribute('role','dialog');
+  banner.setAttribute('aria-label','Install SkinCheck');
+  document.body.appendChild(banner);
+
+  var shareGlyph = '<svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m8 7 4-4 4 4"/><path d="M4 11v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/></svg>';
+
+  function dismiss(remember){
+    banner.classList.remove('in');
+    setTimeout(function(){ banner.hidden = true; }, 320);
+    if (remember) { try { localStorage.setItem(KEY, String(Date.now())); } catch(e){} }
+  }
+  function show(mode){
+    if (mode==='android'){
+      banner.innerHTML =
+        '<div class="install-title">Get the SkinCheck app</div>'+
+        '<div class="install-text">One tap — installs straight to your home screen. Free, and it works offline.</div>'+
+        '<div class="install-actions">'+
+        '<button class="install-btn ghost" id="instLater">Not now</button>'+
+        '<button class="install-btn primary" id="instGo">Install</button>'+
+        '</div>';
+      banner.querySelector('#instGo').addEventListener('click', function(){
+        if (!deferred) { dismiss(true); return; }
+        deferred.prompt();
+        deferred.userChoice.then(function(){ deferred=null; dismiss(true); });
+      });
+    } else {
+      banner.innerHTML =
+        '<div class="install-title">Add SkinCheck to your home screen</div>'+
+        '<div class="install-text">1. Tap the Share button '+shareGlyph+' below<br>2. Choose “Add to Home Screen”</div>'+
+        '<div class="install-actions">'+
+        '<button class="install-btn primary" id="instLater">Got it</button>'+
+        '</div>';
+    }
+    banner.querySelector('#instLater').addEventListener('click', function(){ dismiss(true); });
+    banner.hidden = false;
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ banner.classList.add('in'); }); });
+  }
+
+  window.addEventListener('beforeinstallprompt', function(e){
+    e.preventDefault();
+    deferred = e;
+    show('android');
+  });
+  window.addEventListener('appinstalled', function(){ banner.remove(); });
+
+  var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  if (force) { setTimeout(function(){ show(force==='android'?'android':'ios'); }, 400); }
+  else if (isIOS) { setTimeout(function(){ show('ios'); }, 1500); }
+})();
 </script>
 <script>
 // PWA: register the service worker on the web only. Inside the Capacitor
