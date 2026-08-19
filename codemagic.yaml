@@ -1,0 +1,96 @@
+# Codemagic CI/CD — builds the Capacitor app for both stores from this repo.
+#
+# Two workflows:
+#   • android-beta → signed .aab → Google Play "internal testing" track
+#   • ios-beta     → signed .ipa → TestFlight
+#
+# Neither runs until the store credentials exist. Set these up in the Codemagic
+# UI (one-time), then trigger a build:
+#
+#   Android:
+#     - Upload your release keystore under Codemagic → Code signing identities
+#       → Android, with reference name `tmc_keystore`.
+#     - Add a Google Play service-account JSON as the env var
+#       GCLOUD_SERVICE_ACCOUNT_CREDENTIALS in the `google_play` group.
+#   iOS:
+#     - Connect an App Store Connect API key integration named `tmc_app_store`
+#       (Codemagic → Integrations → App Store Connect).
+#
+# The bundle/app id is co.uk.themoleclinic.skincheck (see capacitor.config.json).
+# See docs/mobile-deploy.md for the full runbook.
+
+workflows:
+  android-beta:
+    name: Android — Play internal testing
+    max_build_duration: 60
+    environment:
+      groups:
+        - google_play          # GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+      android_signing:
+        - tmc_keystore
+      node: 20
+    scripts:
+      - name: Install JS dependencies
+        script: npm ci
+      - name: Sync web assets into the native project
+        script: npm run cap:sync
+      - name: Build signed Android App Bundle
+        script: |
+          cd android
+          ./gradlew bundleRelease
+    artifacts:
+      - android/app/build/outputs/bundle/release/*.aab
+      - android/app/build/outputs/**/mapping.txt
+    publishing:
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal           # closed beta; promote to production later
+        submit_as_draft: false
+
+  ios-beta:
+    name: iOS — TestFlight
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: tmc_app_store
+    environment:
+      node: 20
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: co.uk.themoleclinic.skincheck
+      vars:
+        BUNDLE_ID: "co.uk.themoleclinic.skincheck"
+        APP_STORE_APPLE_ID: "0000000000"   # numeric App ID from App Store Connect — fill in after creating the app record
+    scripts:
+      - name: Install JS dependencies
+        script: npm ci
+      - name: Sync web assets into the native project
+        script: npm run cap:sync
+      - name: Install CocoaPods dependencies
+        script: |
+          cd ios/App
+          pod install
+      - name: Set build number
+        script: |
+          cd ios/App
+          agvtool new-version -all $PROJECT_BUILD_NUMBER
+      - name: Fetch signing files
+        script: |
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE --create
+      - name: Apply provisioning profiles
+        script: xcode-project use-profiles
+      - name: Build signed .ipa
+        script: |
+          xcode-project build-ipa \
+            --workspace ios/App/App.xcworkspace \
+            --scheme App
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true

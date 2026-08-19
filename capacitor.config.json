@@ -1,0 +1,12 @@
+{
+  "appId": "co.uk.themoleclinic.skincheck",
+  "appName": "TMC SkinCheck",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "App": {},
+    "Browser": {}
+  }
+}

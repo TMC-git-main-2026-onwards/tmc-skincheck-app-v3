@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#395171">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png">
 <title>The Mole Clinic — Skin Safety</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1216,39 +1219,23 @@ const resizeImageForAnalysis = (dataURL) => new Promise(resolve => {
 });
 const analyseArmPhoto = async (imageDataURL) => {
   const resized = await resizeImageForAnalysis(imageDataURL);
-  // Run pixel sampling and worker call in parallel
-  const [pixelResult, workerResult] = await Promise.allSettled([
-    classifyMonkToneFromPixels(resized),
-    (async () => {
-      const [header, base64Data] = resized.split(',');
-      const mimeType = header.match(/:(.*?);/)[1] || 'image/jpeg';
-      const response = await fetch('https://tmc-skin-proxy.githubadmin-ff3.workers.dev', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({imageBase64: base64Data, mimeType})
-      });
-      if (!response.ok) throw new Error('Worker error ' + response.status);
-      return await response.json();
-    })()
-  ]);
-  const worker = workerResult.status === 'fulfilled' ? workerResult.value : null;
-  const pixel = pixelResult.status === 'fulfilled' && pixelResult.value ? pixelResult.value : { tone: null, status: 'error' };
-  // Worker Monk estimate for cross-checking the pixel reading (feedback 1.3).
-  // Tolerates worker deployments that don't return monkToneEstimate yet.
-  const workerTone = worker && worker.monkToneEstimate >= 1 && worker.monkToneEstimate <= 10
-    ? Math.round(worker.monkToneEstimate) : null;
+  // PRIVACY (beta): the photo is analysed entirely ON-DEVICE — skin tone is
+  // estimated from pixel sampling here in the browser. The image is never
+  // uploaded. (An earlier build POSTed it to a server-side AI mole-counter;
+  // that upload has been removed so the photo truly never leaves the device,
+  // matching the on-screen privacy copy.) Automated mole counting is therefore
+  // not performed — the questionnaire's mole/freckle profile remains the
+  // mole-risk signal (logic.js), and mole count is reported as "not assessed".
+  let pixel;
+  try { pixel = await classifyMonkToneFromPixels(resized); }
+  catch (e) { pixel = { tone: null, status: 'error' }; }
+  if (!pixel) pixel = { tone: null, status: 'error' };
   let monkTone = null, monkToneSource = null, toneStatus = 'ok';
   if (pixel.status === 'lighting') {
     toneStatus = 'lighting';
   } else if (pixel.tone != null) {
     monkTone = pixel.tone;
     monkToneSource = 'pixel_sampling';
-    // Pixel and worker estimates more than 2 tones apart: confidence is low —
-    // prompt a retake rather than trusting either reading
-    if (workerTone != null && Math.abs(workerTone - pixel.tone) > 2) toneStatus = 'mismatch';
-  } else if (workerTone != null) {
-    monkTone = workerTone;
-    monkToneSource = 'worker';
   } else {
     // NO silent default — a fallback of tone 3 biases light (feedback 1.3).
     // A null tone routes the user to manual swatch selection.
@@ -1258,12 +1245,12 @@ const analyseArmPhoto = async (imageDataURL) => {
     monkTone,
     monkToneSource,
     toneStatus,
-    workerTone,
-    moleCount: worker ? worker.moleCount : -1,
-    moleCountCategory: worker ? worker.moleCountCategory : 'under7',
-    confidence: worker ? worker.confidence : 'low',
-    lightingQuality: worker ? worker.lightingQuality : 'unknown',
-    analysisNotes: worker ? worker.analysisNotes : 'Worker unavailable'
+    workerTone: null,
+    moleCount: -1,            // not assessed on-device
+    moleCountCategory: null,  // null (not 'under7') → no boost, no fake low count
+    confidence: 'low',
+    lightingQuality: 'unknown',
+    analysisNotes: 'On-device analysis only'
   };
 };
 function handleAnalysisResult(result){
@@ -1363,7 +1350,7 @@ function handleAnalysisError(e){
     <h2 class="title-lg">Analysis failed</h2>
     <div class="cam-error-box">
       <div style="font-size:15px;font-weight:600;color:var(--status-vhigh-fg);margin-bottom:6px">Could not analyse photo</div>
-      <div style="font-size:13px;color:var(--ink-500)">${e.message||'Please check your API key and try again.'}</div>
+      <div style="font-size:13px;color:var(--ink-500)">${e.message||'We could not read a skin tone from that photo. Try again in better light, or choose your tone manually.'}</div>
     </div>
     <div style="margin-top:20px;display:flex;flex-direction:column;gap:10px">
       <button class="btn-primary" onclick="showCameraState('A')">Try Again</button>
@@ -1375,8 +1362,6 @@ function showAnalysisResults(){
   const sa=st.skinAnalysis;
   const stC=document.getElementById('cam-state-c');
   if(!stC)return;
-  const moleLabels={under7:'Fewer than 7',['7to10']:'7–10',['11plus']:'11 or more'};
-  const bodyLabels={under10:'Fewer than 10 (typical)','10-20':'10–20','20-50':'20–50','10to50':'10–50 (moderate)','50plus':'50 or more (elevated)'};
   stC.innerHTML=`<div class="content animate-in">
     <h2 class="title-lg" style="display:flex;align-items:center;gap:8px">${icon('check',24,'color:var(--status-low-fg)','Complete')} Analysis complete</h2>
     ${st.capturedPhoto?`<img src="${st.capturedPhoto}" class="cam-result-img" alt="Captured right forearm photo" style="margin-top:14px">`:``}
@@ -1387,22 +1372,7 @@ function showAnalysisResults(){
       <p style="text-align:center;font-size:14px;font-weight:600;color:var(--tmc-navy);margin-top:10px">Does this look right?</p>
       <p style="text-align:center;font-size:12px;color:var(--ink-500);margin-top:4px">Tap a different swatch to adjust it.</p>
     </div>
-    <div class="cam-result-card" style="margin-top:10px">
-      <div style="font-size:13px;font-weight:700;color:var(--blue-700);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">AI mole analysis</div>
-      ${sa.moleRaw?`<div class="cam-result-row">
-        <span class="cam-result-label">Visible right-arm moles</span>
-        <span class="cam-result-value">${moleLabels[sa.moleRaw]||sa.moleRaw}</span>
-      </div>
-      <div class="cam-result-row">
-        <span class="cam-result-label">Estimated body moles</span>
-        <span class="cam-result-value">${bodyLabels[sa.moleCountAnswer]||sa.moleCountAnswer}</span>
-      </div>`:``}
-      <div class="cam-result-row">
-        <span class="cam-result-label">Confidence</span>
-        <span class="cam-result-value" style="text-transform:capitalize">${sa.confidence}</span>
-      </div>
-    </div>
-    <p style="font-size:11px;color:var(--ink-400);margin-top:10px;line-height:1.5">Right-arm mole count predicts body mole burden per Bataille et al. 2015 (King's College London). Body mole count question will be pre-filled in your questionnaire.</p>
+    <p style="font-size:11px;color:var(--ink-400);margin-top:10px;line-height:1.5">Your skin tone is estimated on your device from the photo — the image is not uploaded or stored. You'll answer about your moles in the questionnaire.</p>
     <div style="margin-top:20px;display:flex;gap:10px">
       <button class="btn-secondary" onclick="retakePhoto()" style="flex:1">Retake photo</button>
       <button class="btn-primary" onclick="proceedFromAnalysis()" style="flex:1">Confirm ${icon('chevron-right',18)}</button>
@@ -1426,12 +1396,12 @@ function renderWelcome(){
     </div>
     <div class="content">
       <div class="feature-list">
-        <div class="feature-item animate-in-delay-1"><div class="feature-icon">${icon('sparkles',20)}</div><div><div class="feature-title">AI Skin Analysis</div><div class="feature-desc">Camera analysis of your right forearm to detect your Monk skin tone and mole profile — powered by Claude AI</div></div></div>
+        <div class="feature-item animate-in-delay-1"><div class="feature-icon">${icon('sparkles',20)}</div><div><div class="feature-title">On-device skin tone check</div><div class="feature-desc">A photo of your forearm is analysed on your phone to estimate your skin tone — the image never leaves your device</div></div></div>
         <div class="feature-item animate-in-delay-2"><div class="feature-icon">${icon('sun',20)}</div><div><div class="feature-title">Live UV &amp; Sun Safety</div><div class="feature-desc">Real-time UV index with personalised SPF recommendation for your skin tone</div></div></div>
         <div class="feature-item animate-in-delay-3"><div class="feature-icon">${icon('layout-dashboard',20)}</div><div><div class="feature-title">Your Skin Safety Dashboard</div><div class="feature-desc">Clinically informed questions covering your skin profile, personal history, UV exposure, and any areas of concern</div></div></div>
       </div>
       <div class="disclaimer animate-in-delay-4"><strong>Important:</strong> This is not a medical diagnosis. This tool helps you understand your skin cancer risk and recommends appropriate professional skin checks.</div>
-      <div class="trust-badge animate-in-delay-4">${icon('shield-check',15,'color:var(--tmc-blue)')} Your data stays on your device — we never sell your details</div>
+      <div class="trust-badge animate-in-delay-4">${icon('shield-check',15,'color:var(--tmc-blue)')} Your photos and answers stay on your device — we never sell your details</div>
     </div>
     <div class="bottom-action"><button class="btn-primary" onclick="navigate('email')">Start Your Free Check ${icon('chevron-right',18)}</button></div>
     ${renderFooter()}
@@ -1465,7 +1435,7 @@ function renderConsent(){
         <div class="card" style="margin-bottom:12px">
           <div class="consent-row">
             <div class="consent-checkbox ${st.consentData?'checked':''}" id="consentData"></div>
-            <div class="consent-text"><strong>Data processing consent</strong> (required)<br>I consent to The Mole Clinic collecting and processing my personal data for the purpose of generating my skin health risk profile, stored in accordance with GDPR. <a href="#">Privacy policy</a></div>
+            <div class="consent-text"><strong>Data processing consent</strong> (required)<br>I consent to The Mole Clinic collecting and processing my personal data for the purpose of generating my skin health risk profile, stored in accordance with GDPR. <a href="#" onclick="openExternal('https://themoleclinic.co.uk/privacy/');return false">Privacy policy</a></div>
           </div>
         </div>
         <div class="card">
@@ -1486,8 +1456,8 @@ function renderArmCamera(){
   return`<div class="screen">
     ${renderHeader()}
     <div id="cam-state-a" class="content animate-in">
-      <h2 class="title-lg">Right Arm Skin Analysis</h2>
-      <p class="subtitle">We'll use your camera and Claude AI to detect your Monk skin tone and count visible moles on your <strong>right forearm</strong> — automatically filling in part of your profile. The evidence behind arm mole counting is specific to the right arm.</p>
+      <h2 class="title-lg">Skin tone from a photo</h2>
+      <p class="subtitle">We'll use your camera to estimate your Monk skin tone from your <strong>right forearm</strong> — automatically filling in part of your profile. The analysis happens entirely on your phone and the photo is never uploaded. You can also pick your tone by hand instead.</p>
       <div class="card" style="margin-top:16px;padding:14px;text-align:center">
         <svg viewBox="0 0 320 150" width="100%" style="max-width:320px" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Diagram of a correctly framed right inner forearm: wrist on the left, elbow on the right, on a plain background">
           <rect x="0" y="0" width="320" height="150" rx="12" fill="#F0F6FC"/>
@@ -1668,14 +1638,14 @@ function renderConsentLocation(){
     <div class="content animate-in">
       <div class="consent-icon">${icon('map-pin',40)}</div>
       <h2 class="title-lg">Enable Location Services</h2>
-      <p class="subtitle">To show you real-time UV index and personalised sun safety recommendations, we'd like to access your device location. This is stored only on your device and never sent to our servers.</p>
+      <p class="subtitle">To show you real-time UV index and personalised sun safety recommendations, we'd like to access your device location. Your approximate location is sent to weather and mapping providers to fetch this data; The Mole Clinic does not store it.</p>
       <div class="card" style="margin-top:24px">
         <div class="toggle-wrap">
           <div><div class="toggle-label-text">Allow location access</div><div class="toggle-label-sub">Triggers a browser permission request</div></div>
           <label class="toggle-switch"><input type="checkbox" id="locationToggle" ${st.consentLocation?'checked':''}><span class="toggle-slider"></span></label>
         </div>
       </div>
-      <div class="consent-info-box">Your location is processed entirely on this device and never transmitted to our servers or third parties. You can revoke this permission at any time in your browser settings.</div>
+      <div class="consent-info-box">To fetch your UV index and nearest clinic, your approximate location is sent to weather and mapping providers (Open-Meteo, OpenStreetMap, postcodes.io). It is not stored by The Mole Clinic. You can revoke this permission at any time in your settings.</div>
       ${st.consentLocation
         ?`<div class="consent-success-box">${icon('check',16)}<span>Location access granted. We'll fetch live UV data for your area.</span></div>`
         :`<p style="margin-top:12px;font-size:13px;color:var(--ink-400);text-align:center">You can use the app without location — UV data will not be available.</p>`}
@@ -1697,7 +1667,7 @@ function renderConsentTravel(){
           <label class="toggle-switch"><input type="checkbox" id="travelToggle" ${st.consentTravel?'checked':''}><span class="toggle-slider"></span></label>
         </div>
       </div>
-      <div class="consent-info-box">Location history (country-level) is stored only on this device. No data leaves your phone.</div>
+      <div class="consent-info-box">Your country-level travel history is stored only on this device and is not sent to The Mole Clinic. Determining your location uses the same mapping providers noted above.</div>
     </div>
     <div class="bottom-action"><button class="btn-primary" onclick="navigate('consent_notifications')">Continue ${icon('chevron-right',18)}</button></div>
     ${renderFooter()}
@@ -1748,8 +1718,18 @@ function renderLoading(){
 // ===== BOOKING & NEAREST CLINIC =====
 // All booking goes to the service-specific pages in BOOK_URLS (logic.js) —
 // the patient picks their clinic inside the booking flow.
-function openBooking(serviceKey){window.open(BOOK_URLS[serviceKey]||BOOK_URLS.skinCheck,'_blank');}
-function openExternal(url){window.open(url,'_blank');}
+// Open an http(s) link. In the native shell (Capacitor) route through the
+// Browser plugin so it opens in an in-app Safari/Chrome tab the user can
+// dismiss back into the app; on the web, fall back to a normal new tab.
+function openUrlExternal(url){
+  const cap=window.Capacitor;
+  if(cap&&typeof cap.isNativePlatform==='function'&&cap.isNativePlatform()&&cap.Plugins&&cap.Plugins.Browser){
+    cap.Plugins.Browser.open({url}); return;
+  }
+  window.open(url,'_blank');
+}
+function openBooking(serviceKey){openUrlExternal(BOOK_URLS[serviceKey]||BOOK_URLS.skinCheck);}
+function openExternal(url){openUrlExternal(url);}
 function bookingKeyForRec(rec){return rec&&rec.primary==='mole_mapping'?'moleMapping':'skinCheck';}
 function formatMiles(d){return d<10?d.toFixed(1):Math.round(d).toString();}
 function renderClinicListRows(list){
@@ -1980,7 +1960,7 @@ function renderHomepage(){
               <div class="ref-item"><strong>Google Monk Skin Tone Scale (MST)</strong>Ellis Monk, Harvard University / Google, 2019. 10-point scale representing the full range of human skin tones. Skin tone is classified in this app from in-ellipse pixel sampling of the captured right-forearm photo using the Individual Typology Angle (ITA, Chardon et al. 1991) in CIELAB colour space, cross-checked against an AI estimate and confirmed by the user — objective colour measurement rather than visual estimation alone.</div>
               <div class="ref-item"><strong>Gandini et al. (2005) — Meta-analysis of risk factors for cutaneous melanoma</strong>European Journal of Cancer, 41(1), 28-44. First-degree relative with melanoma: RR 2.24. Very fair skin (Fitzpatrick I–II): RR 2.09. Sunbed use, sunburn history and UV exposure weights derived from this meta-analysis. Notably, intermittent exposure raises melanoma risk (OR ≈ 1.6) while chronic/occupational exposure does not (OR ≈ 0.95) — the basis for keeping the cumulative UV dimension separate from the melanoma score.</div>
               <div class="ref-item"><strong>Tucker et al. (1997) — Mole count as independent risk factor</strong>Journal of the National Cancer Institute. 50+ moles confers RR 4.8 versus fewer than 15 moles. Strongest modifiable risk predictor after family history.</div>
-              <div class="ref-item"><strong>Bataille et al. (2015) — Arm Mole Count (King's College London)</strong>British Journal of Dermatology. DOI: 10.1111/bjd.14119. Mole count on the right arm predicts total body mole burden. 7–10 arm moles = ~50+ body moles; 11+ arm moles = elevated melanoma risk indicator. Used here to map AI mole count to body mole estimate.</div>
+              <div class="ref-item"><strong>Bataille et al. (2015) — Arm Mole Count (King's College London)</strong>British Journal of Dermatology. DOI: 10.1111/bjd.14119. Mole count on the right arm predicts total body mole burden. 7–10 arm moles = ~50+ body moles; 11+ arm moles = elevated melanoma risk indicator. Underpins the mole-count question in the questionnaire.</div>
               <div class="ref-item"><strong>Bradford et al. (2010) — Second primary melanoma risk</strong>Journal of the National Cancer Institute. Previous melanoma diagnosis: RR 8.5 for second primary melanoma. Informs the elevated weight given to personal history of skin cancer.</div>
               <div class="ref-item"><strong>IARC Working Group (2006) — Sunbed carcinogenicity</strong>Lancet Oncology. Sunbed use before age 35 increases melanoma risk by 75% (RR 1.75). WHO classified sunbeds as Group 1 carcinogens (definitively carcinogenic to humans).</div>
               <div class="ref-item"><strong>Green et al. (1999) — Daily sunscreen and melanoma prevention</strong>Lancet. Randomised controlled trial (Queensland, Australia). Daily SPF 15 sunscreen reduces melanoma incidence by ~50% over 10 years. Informs the protective weighting applied to consistent sunscreen use.</div>
@@ -2319,6 +2299,15 @@ function init(){
   }
 }
 init();
+</script>
+<script>
+// PWA: register the service worker on the web only. Inside the Capacitor
+// native shell the bundle is local already, and a SW would just add a second
+// cache layer to reason about.
+if('serviceWorker' in navigator &&
+   !(window.Capacitor && typeof Capacitor.isNativePlatform==='function' && Capacitor.isNativePlatform())){
+  window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{});});
+}
 </script>
 </body>
 </html>
