@@ -13,7 +13,9 @@
 #   SUB=<id> REGION=<r> SIZE=<sku> bash scripts/azure-android-build.sh
 set -euo pipefail
 
-SUB="${SUB:-59b56eea-74c6-43fc-95cb-aa1afc0e2065}"   # TMC Azure Sandbox and Testing
+# Default to the az CLI's active subscription (use the TMC sandbox sub);
+# override with SUB=<id>. Not hard-coded: this repo is public.
+SUB="${SUB:-$(az account show --query id -o tsv)}"
 REGION="${REGION:-ukwest}"
 SIZE="${SIZE:-Standard_D2as_v5}"
 # Unique per run: teardown is --no-wait, so a fixed name makes two builds in

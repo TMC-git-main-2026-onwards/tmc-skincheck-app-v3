@@ -85,7 +85,7 @@ account verifications in parallel today, then close the build-config items.
 
 - **`allowBackup="true"`** lets the cached skin photo + risk profile auto-back-up to Google Drive. **Action:** set `allowBackup="false"` (or exclude the WebView localStorage). — **✅ fixed in this pass.**
 - **`ACCESS_FINE_LOCATION` likely exceeds need** (UV + city-scale clinic). **Action:** drop to coarse, or justify FINE in the Play declaration.
-- **Open proxy: wildcard CORS, no auth, server-side paid API key.** Anyone can push images through TMC's Anthropic key. **Action:** restrict CORS to the app origin, add a shared-secret/attestation + rate limiting, confirm zero-retention + no image logging. *(`worker.js:3-8,13,23-25`)*
+- **Retire or harden the standalone proxy worker.** The app no longer calls it (photo analysis is on-device), so the deployed worker should be shut down; if kept for a future feature, lock it down (origin checks, auth, rate limiting) first.
 - **Notifications onboarding advertises a non-existent feature** ("coming in a future update") — §2.1 completeness ding. **Action:** remove or reframe as the "add to home screen" tip. *(`index.html:1712,1718`)*
 - **Two future-dated 2026 citations** back medical risk weighting; "Gadare et al., MIT (2026)" has no DOI. **Action:** verify they resolve to real publications or remove the claims. *(`index.html:1999,2004`)*
 - **Loose free third-party endpoints** (Nominatim custom UA, postcodes.io, Open-Meteo, Google Fonts). **Action:** confirm provider terms permit production use; self-host the Inter font; verify UV fallback on a real device.
