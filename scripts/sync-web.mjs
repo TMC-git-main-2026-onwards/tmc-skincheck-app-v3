@@ -11,7 +11,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const www = join(root, 'www');
 
 // Files copied verbatim into www/. Add new top-level web assets here.
-const FILES = ['index.html', 'logic.js', 'icons.js'];
+const FILES = ['index.html', 'logic.js', 'icons.js', 'manifest.webmanifest', 'sw.js'];
 // Whole directories copied if present (e.g. bundled fonts/images later).
 const DIRS = ['assets'];
 

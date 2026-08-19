@@ -44,6 +44,32 @@ builds both apps → they land in TestFlight (iOS) and Play internal testing
   `versionCode` auto-increments from the CI build number; `versionName 0.4.0`.
 - `codemagic.yaml` — `android-beta` and `ios-beta` workflows.
 
+## Installable web app (PWA) — both platforms, no store, no accounts
+
+The web app is now a **Progressive Web App**: `manifest.webmanifest` + `sw.js`
+(service worker) + icons under `assets/icons/`, wired into `index.html`. Served
+over HTTPS (e.g. the GitHub Pages deployment), it installs to the home screen
+as "SkinCheck" with the TMC icon, runs full-screen, and opens offline (the app
+shell is cached; UV/geocoding calls still need signal). Verified in Chrome:
+service worker registers, activates, controls the page, and caches the shell.
+
+**How a tester installs it**
+- **Android (Chrome):** open the app URL → menu → "Add to Home screen" (Chrome
+  may offer an Install banner on its own).
+- **iPhone (Safari):** open the URL → Share → "Add to Home Screen". Camera in
+  home-screen web apps needs iOS 13.4+ — fine for any modern fleet.
+
+**Company-phone (MDM) distribution without any store**
+- **iOS:** push a **web clip** (home-screen icon pointing at the app URL) via
+  the company's MDM — no Apple Developer account required.
+- **Android:** push the debug/release APK directly via MDM, or pin the web app.
+
+**Update model:** bump `VERSION` in `sw.js` when releasing — clients fetch the
+new bundle on their next online navigation.
+
+Note the service worker is web-only: inside the Capacitor native shell it is
+deliberately not registered (the bundle is already local).
+
 ## Testing the Android app right now (no store account needed)
 
 A working debug APK has already been built and is in `dist/`

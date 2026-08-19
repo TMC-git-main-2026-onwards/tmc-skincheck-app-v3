@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#395171">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png">
 <title>The Mole Clinic — Skin Safety</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -2296,6 +2299,15 @@ function init(){
   }
 }
 init();
+</script>
+<script>
+// PWA: register the service worker on the web only. Inside the Capacitor
+// native shell the bundle is local already, and a SW would just add a second
+// cache layer to reason about.
+if('serviceWorker' in navigator &&
+   !(window.Capacitor && typeof Capacitor.isNativePlatform==='function' && Capacitor.isNativePlatform())){
+  window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{});});
+}
 </script>
 </body>
 </html>
