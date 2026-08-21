@@ -8,7 +8,7 @@
 //    the network untouched, so nothing external is ever served stale.
 //  - Navigations are network-first with a cached-shell fallback, so an update
 //    is picked up when online but the app still opens with no signal.
-const VERSION = 'tmc-skincheck-v0.4.2';
+const VERSION = 'tmc-skincheck-v0.4.3';
 const SHELL = ['./', './index.html', './logic.js', './icons.js', './manifest.webmanifest',
                './assets/icons/icon-192.png', './assets/icons/icon-512.png'];
 

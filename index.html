@@ -151,6 +151,9 @@ button{font-family:var(--font-body)}
 .welcome-hero .subtitle{color:rgba(255,255,255,.78)}
 .welcome-stat{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.12);border-radius:var(--radius-sm);padding:8px 14px;font-size:13px;line-height:18px;color:rgba(255,255,255,.92);margin-top:16px}
 .welcome-social-proof{font-size:13px;color:rgba(255,255,255,.65);margin-top:10px}
+.welcome-trust-points{font-size:12.5px;color:#CFE0EF;text-align:center;margin-top:10px;font-weight:500}
+.btn-hero{display:block;width:100%;min-height:52px;margin-top:14px;padding:14px 24px;background:var(--tmc-cyan);color:#08272F;font-size:16px;font-weight:700;border:none;border-radius:var(--radius-md);cursor:pointer;transition:filter var(--dur)}
+.btn-hero:hover{filter:brightness(1.06)}
 .partner-lockup{font-size:11px;color:#AEBED2;display:inline-flex;align-items:center;gap:6px}
 .partner-lockup b{color:#fff;font-weight:600}
 .feature-list{margin-top:20px}
@@ -195,6 +198,8 @@ input:checked+.toggle-slider:before{transform:translateX(24px)}
 .hp-location{font-size:12px;color:#C7D3E2;display:flex;align-items:center;gap:4px}
 .hp-content{flex:1;padding:18px 18px 32px;overflow-y:auto}
 .hp-section-label{font-size:12px;line-height:16px;font-weight:600;color:var(--ink-400);text-transform:uppercase;letter-spacing:.06em;margin:20px 0 8px}
+.live-pill{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--blue-700);background:var(--tint-teal);padding:3px 9px;border-radius:20px}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--tmc-cyan)}
 .hp-section-label:first-child{margin-top:0}
 /* UV card */
 .uv-card{background:var(--surface);border-radius:var(--radius-lg);padding:16px;border:1px solid var(--line);margin-bottom:4px}
@@ -312,12 +317,12 @@ input:checked+.toggle-slider:before{transform:translateX(24px)}
 .svc-rec-badge.urgent{background:var(--status-mod-bg);color:var(--status-mod-fg)}
 .svc-rec-title{font-size:17px;line-height:24px;font-weight:600;color:var(--tmc-navy);margin-bottom:6px;display:flex;align-items:center;gap:8px}
 .svc-rec-desc{font-size:13px;line-height:20px;color:var(--ink-500);margin-bottom:14px}
-.svc-tile-row{display:flex;gap:8px;margin-bottom:12px}
-@media(max-width:380px){.svc-tile-row{flex-direction:column}}
-.svc-tile{flex:1;border-radius:10px;padding:12px;border:1px solid var(--line);background:var(--surface);min-width:0}
+.svc-tile-row{display:flex;gap:10px;margin-bottom:12px}
+@media(max-width:440px){.svc-tile-row{flex-direction:column}}
+.svc-tile{flex:1;border-radius:10px;padding:14px;border:1px solid var(--line);background:var(--surface);min-width:0}
 .svc-tile-primary{border:1.5px solid var(--tmc-blue);background:var(--blue-50)}
 .svc-tile-name{font-size:12px;font-weight:600;color:var(--ink-900);margin-bottom:4px}
-.svc-tile-desc{font-size:12px;color:var(--ink-500);margin-bottom:8px;line-height:17px}
+.svc-tile-desc{font-size:12px;color:var(--ink-500);margin-bottom:8px;line-height:18px}
 .svc-tile-btn{width:100%;min-height:36px;padding:8px;background:var(--tmc-blue);color:#fff;border:none;border-radius:var(--radius-sm);font-size:12px;font-weight:600;cursor:pointer;transition:background var(--dur)}
 .svc-tile-btn:hover{background:var(--blue-700)}
 .svc-disclaimer,.svc-disclaimer-light{font-size:12px;color:var(--ink-400);line-height:17px;text-align:center;padding:0 4px}
@@ -857,7 +862,7 @@ function renderHeader(showBack=true){
   const microMsg=pct>=85?'Nearly done — almost ready'
     :pct>=60?'Your profile is taking shape'
     :pct>=50?"You're halfway there"
-    :'Great start — just a few more questions';
+    :(st.screen==='arm_camera'?'Great start — just a few more questions':'Great progress — just a few more questions');
   return`<div class="header">
     ${showBack?`<button class="header-back" onclick="goBack()" aria-label="Back">${icon('arrow-left',20)}</button>`:'<div style="width:44px"></div>'}
     <div style="flex:1;text-align:center"><img src="https://themoleclinic.co.uk/wp-content/uploads/2025/02/MoleClinic-Ver-White2.png" alt="The Mole Clinic" style="height:32px;width:auto;"></div>
@@ -1408,6 +1413,8 @@ function renderWelcome(){
       <p class="subtitle">Get your personalised Mole Clinic Profile in minutes. Know your risk. Know your next step.</p>
       <div class="welcome-stat animate-in-delay-1">${icon('microscope',16)} Over 16,000 people are diagnosed with melanoma skin cancer in the UK each year.</div>
       <div class="welcome-social-proof animate-in-delay-2">Used by patients across The Mole Clinic's UK clinics</div>
+      <div class="welcome-trust-points animate-in-delay-2">Takes less than 5 minutes &middot; Instant results &middot; Private &amp; secure &middot; Completely free</div>
+      <button class="btn-hero animate-in-delay-3" onclick="navigate('email')">Start Your Free Check ${icon('chevron-right',18)}</button>
     </div>
     <div class="content">
       <div class="feature-list">
@@ -1444,8 +1451,8 @@ function renderConsent(){
   return`<div class="screen">
     ${renderHeader()}
     <div class="content animate-in">
-      <h2 class="title-lg">Before we continue</h2>
-      <p class="subtitle">We need your consent to process your information.</p>
+      <h2 class="title-lg">Your Privacy Matters</h2>
+      <p class="subtitle">A quick word on how your information is handled — you stay in control.</p>
       <div style="margin-top:24px">
         <div class="card" style="margin-bottom:12px">
           <div class="consent-row">
@@ -1474,6 +1481,7 @@ function renderArmCamera(){
       <h2 class="title-lg">Skin tone from a photo</h2>
       <p class="subtitle">We'll use your camera to estimate your Monk skin tone from your <strong>right forearm</strong> — automatically filling in part of your profile. The analysis happens entirely on your phone and the photo is never uploaded. You can also pick your tone by hand instead.</p>
       <div class="card" style="margin-top:16px;padding:14px;text-align:center">
+        <div style="font-size:12px;font-weight:600;color:var(--ink-400);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Example of a good photo</div>
         <svg viewBox="0 0 320 150" width="100%" style="max-width:320px" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Diagram of a correctly framed right inner forearm: wrist on the left, elbow on the right, on a plain background">
           <rect x="0" y="0" width="320" height="150" rx="12" fill="#F0F6FC"/>
           <ellipse cx="33" cy="72" rx="14" ry="21" fill="#E8D3BC" stroke="#395171" stroke-width="1.5"/>
@@ -1484,6 +1492,9 @@ function renderArmCamera(){
           <text x="282" y="132" text-anchor="middle" font-family="Inter,sans-serif" font-size="11" font-weight="600" letter-spacing="1" fill="#395171">ELBOW</text>
         </svg>
         <p style="font-size:12px;color:var(--ink-500);margin-top:8px;line-height:1.5">Your screen should mirror this: <strong>right inner forearm</strong>, wrist on the left, elbow on the right, on a plain background.</p>
+        <div style="display:flex;justify-content:center;gap:14px;flex-wrap:wrap;margin-top:8px;font-size:11.5px;font-weight:600;color:var(--status-low-fg)">
+          <span>${icon('check',13)} Even daylight</span><span>${icon('check',13)} Plain background</span><span>${icon('check',13)} Wrist to elbow</span>
+        </div>
       </div>
       <div class="photo-tips-list">
         <div class="photo-tip-row"><div class="photo-tip-emoji">${icon('hand',22)}</div><div class="photo-tip-body"><strong>Right arm, left hand</strong>Hold your phone in your left hand to photograph your right forearm — that's the right way round. Palm up, sleeve rolled to the elbow.</div></div>
@@ -1519,8 +1530,9 @@ function renderQIntro(){
             :`As part of your skin-health check through your provider,`;
           return`<p style="margin-bottom:16px">${lead} the questions about outdoor work and lifetime sun exposure are especially relevant — please answer for your whole working life, not just your current role.</p>`;
         })()}
-        <p style="margin-bottom:16px">Skin cancer can affect people of all skin types and does not always arise from moles. Some skin cancers are related to moles and changes over time. Others — particularly non-melanoma skin cancers such as basal cell carcinoma (BCC) and squamous cell carcinoma (SCC) — are related to cumulative sun exposure and sun-damaged skin.</p>
-        <p>These questions help us understand different types of skin cancer risk and recommend the most appropriate professional skin check for you.</p>
+        <p style="margin-bottom:16px">Skin cancer can affect people of all skin types and is influenced by factors such as skin type, sun exposure and changes to moles over time.</p>
+        <p>The next few questions help us create your personalised skin risk profile and recommend the most appropriate professional skin check for you.</p>
+        <p style="margin-top:16px;font-weight:600;color:#fff">${icon('clock',15)} Takes around 2 minutes</p>
       </div>
     </div>
     <div class="bottom-action"><button class="btn-primary" onclick="st.currentQuestion=0;navigate('questionnaire')">Continue ${icon('chevron-right',18)}</button></div>
@@ -1892,7 +1904,8 @@ function renderHomepage(){
         <button class="travel-banner-dismiss" onclick="dismissTravelBanner()">Remind me later</button>
       </div></div>`:''}
     <div class="hp-content">
-      <div class="hp-section-label">Today's Skin Safety</div>
+      <div class="hp-section-label" style="display:flex;align-items:center;justify-content:space-between">Today's Skin Safety
+        ${wd?`<span class="live-pill"><span class="live-dot"></span>Live &middot; updates daily</span>`:``}</div>
       <div class="uv-card">${buildUVCardHtml(wd,p,hour)}</div>
       <div style="margin-top:16px">
         <div class="collapsible-header" onclick="toggleProfile()">
@@ -1960,9 +1973,9 @@ function renderHomepage(){
         <div class="book-card-row"><span class="book-card-label">TMC recommends</span><span class="book-card-value"><span class="freq-badge ${freqClass}">${checkFreq}</span></span></div>
         <div id="nearest-clinic-block"></div>
         ${(()=>{const rec=p.serviceRecommendation||getServiceRecommendation(p.answers,p.cumulativeUVLevel);const key=bookingKeyForRec(rec);return rec.urgency==='urgent'?`<div class="urgent-notice">Based on your answers, we recommend booking as soon as possible.</div><button class="book-btn-urgent" onclick="openBooking('${key}')">Book at The Mole Clinic ${icon('arrow-right',16)}</button>`:`<button class="book-btn-hp" onclick="openBooking('${key}')">Book at The Mole Clinic ${icon('arrow-right',16)}</button>`;})()}
-        <div class="exit-links">Not ready to book yet? That's fine — your results are saved on this device.<br>
-          <button onclick="emailResultsDraft()">${icon('mail',14)} Email me my results</button> &middot; <button onclick="doneForNow()">Done for now</button>
-        </div>
+        <div class="exit-links">Not ready to book yet? That's fine — your results are saved on this device.</div>
+        <button class="btn-secondary" style="width:100%;min-height:48px;margin-top:10px;display:inline-flex;align-items:center;justify-content:center;gap:8px" onclick="emailResultsDraft()">${icon('mail',16)} Email me my results</button>
+        <div class="exit-links" style="margin-top:8px"><button onclick="doneForNow()">Done for now</button></div>
       </div>
       <div style="margin-top:20px">
         <div class="collapsible-header" onclick="toggleMethodology()">
